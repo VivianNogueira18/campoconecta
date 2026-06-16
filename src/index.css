@@ -1,34 +1,34 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Playfair Display", serif;
-  --font-serif: "Playfair Display", serif;
+  --font-sans: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Inter", sans-serif;
+  --font-serif: "Plus Jakarta Sans", "Inter", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
   
-  --color-natural-bg: #F9F8F3;
-  --color-natural-text: #3D3D33;
-  --color-natural-muted: #8E8E7A;
-  --color-natural-accent: #A3A380;
+  --color-natural-bg: #F4F6F3;
+  --color-natural-text: #222920;
+  --color-natural-muted: #62725D;
+  --color-natural-accent: #86A789;
   
-  --color-brand-green: #5A5A40;
-  --color-brand-sage: #A3A380;
-  --color-brand-border: #E6E6DF;
-  --color-brand-card: #F2F2EB;
+  --color-brand-green: #2B5B3E;
+  --color-brand-sage: #4F8A6B;
+  --color-brand-border: #DFE5DF;
+  --color-brand-card: #EBF1EB;
   
-  --color-sage-50: #fbfbf9;
-  --color-sage-100: #f0f0e8;
-  --color-sage-200: #e6e6df;
-  --color-sage-500: #a3a380;
-  --color-sage-600: #5a5a40;
-  --color-sage-700: #4a4a35;
-  --color-sage-850: #343425;
-  --color-sage-950: #1f1f16;
+  --color-sage-50: #F6F8F6;
+  --color-sage-100: #EAEFEB;
+  --color-sage-200: #D8E2D9;
+  --color-sage-500: #5D8E6F;
+  --color-sage-600: #2B5B3E;
+  --color-sage-700: #1E412C;
+  --color-sage-850: #12281B;
+  --color-sage-950: #09140C;
 
-  --color-terracotta: #E07A5F;
-  --color-warm-gold: #D4A373;
-  --color-meadow: #E9EDC9;
+  --color-terracotta: #D36A53;
+  --color-warm-gold: #DD9E4E;
+  --color-meadow: #D3E7D2;
 }
 
 /* Custom styles for high polish */

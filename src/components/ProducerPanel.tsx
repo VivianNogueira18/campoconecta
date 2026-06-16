@@ -310,8 +310,17 @@ export default function ProducerPanel({
           <div className="flex items-center gap-2 bg-[#5A5A40]/80 p-2.5 px-3 rounded-xl border border-white/10">
             <DynamicIcon name="Star" className="w-4 h-4 text-[#D4A373] fill-[#D4A373]" />
             <div>
-              <p className="text-sm font-bold leading-none text-white">{producer.ratingAverage} / 5.0</p>
-              <p className="text-[10px] text-stone-300 mt-1">{producer.ratingCount} avaliações</p>
+              {producer.ratingCount > 0 ? (
+                <>
+                  <p className="text-sm font-bold leading-none text-white">{producer.ratingAverage.toFixed(1)} / 5.0</p>
+                  <p className="text-[10px] text-stone-300 mt-1">{producer.ratingCount} {producer.ratingCount === 1 ? "avaliação" : "avaliações"}</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs font-bold leading-none text-white">Sem avaliações</p>
+                  <p className="text-[9px] text-stone-300 mt-0.5">Nenhuma venda avaliada</p>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -322,7 +331,7 @@ export default function ProducerPanel({
         {[
           { id: "orders", label: `Pedidos de Hoje (${producerOrders.filter(o => o.status !== "entregue" && o.status !== "cancelado").length})`, icon: "Activity" },
           { id: "catalog", label: "Catálogo de Produtos", icon: "ShoppingBag" },
-          { id: "chats", label: "Chat de Conversas", icon: "MessageSquare" },
+          { id: "chats", label: "Conversas", icon: "MessageSquare" },
           { id: "settings", label: "Dados da Propriedade", icon: "Settings" },
         ].map((tab) => (
           <button

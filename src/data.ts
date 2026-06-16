@@ -9,10 +9,73 @@ import { User, Producer, Product, Selo, Category, Order, ChatMessage, Review } f
 // Coordinates centered around (0, 0) for simplified relative distances (1 decimal degree ≈ 10km grid for simple demo)
 // Distance utility function: math Euclidean × 111km to get extremely realistic distances!
 
+export function getCoordinatesForCity(city: string, state: string): { latitude: number; longitude: number } {
+  const c = city.toLowerCase().trim();
+  const s = state.toUpperCase().trim();
+  
+  if (c === "rio de janeiro" || c === "rio" || c.includes("capital")) {
+    return { latitude: -22.9068, longitude: -43.1729 };
+  }
+  if (c.includes("queimados")) {
+    return { latitude: -22.7160, longitude: -43.5570 };
+  }
+  if (c.includes("nova iguaçu") || c.includes("nova iguacu")) {
+    return { latitude: -22.7562, longitude: -43.4608 };
+  }
+  if (c.includes("belford roxo")) {
+    return { latitude: -22.7641, longitude: -43.3989 };
+  }
+  if (c.includes("duque de caxias") || c.includes("caxias")) {
+    return { latitude: -22.7856, longitude: -43.3117 };
+  }
+  if (c.includes("niterói") || c.includes("niteroi")) {
+    return { latitude: -22.8858, longitude: -43.1153 };
+  }
+  if (c.includes("petrópolis") || c.includes("petropolis")) {
+    return { latitude: -22.5049, longitude: -43.1803 };
+  }
+  if (c.includes("teresópolis") || c.includes("teresopolis")) {
+    return { latitude: -22.4121, longitude: -42.9664 };
+  }
+  if (c.includes("miguel pereira")) {
+    return { latitude: -22.4547, longitude: -43.4797 };
+  }
+  if (c.includes("vassouras")) {
+    return { latitude: -22.4042, longitude: -43.6625 };
+  }
+  
+  if (s === "RJ" || s.includes("RIO")) {
+    return { latitude: -22.7160, longitude: -43.5570 };
+  }
+  
+  if (c.includes("limeira")) {
+    return { latitude: -22.5646, longitude: -47.4014 };
+  }
+  if (c.includes("hortolândia") || c.includes("hortolandia")) {
+    return { latitude: -22.8600, longitude: -47.2200 };
+  }
+  if (c.includes("campinas")) {
+    return { latitude: -22.9056, longitude: -47.0608 };
+  }
+  if (c.includes("são paulo") || c.includes("sao paulo") || c === "sp") {
+    return { latitude: -23.5505, longitude: -46.6333 };
+  }
+  
+  return { latitude: -22.7160, longitude: -43.5570 };
+}
+
 export function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const dLat = (lat2 - lat1) * 111;
-  const dLon = (lon2 - lon1) * 111;
-  return Math.round(Math.sqrt(dLat * dLat + dLon * dLon) * 10) / 10;
+  if (!lat1 || !lon1 || !lat2 || !lon2) return 0;
+  const R = 6371; // Radius of Earth in kilometers
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = R * c;
+  return Math.round(distance * 10) / 10;
 }
 
 export const INITIAL_SELOS: Selo[] = [

@@ -6,7 +6,7 @@
 import React, { useState } from "react";
 import { User, Producer, Product, Category, Selo, CartItem, Order, ChatMessage, Review, OrderItem, OrderStatus } from "../types";
 import { DynamicIcon } from "./Icons";
-import { calculateDistance } from "../data";
+import { calculateDistance, getCoordinatesForCity } from "../data";
 
 interface ClientPanelProps {
   currentUser: User;
@@ -80,13 +80,14 @@ export default function ClientPanel({
   const [profileAvatar, setProfileAvatar] = useState(currentUser.avatarUrl || "");
 
   const [showAddressForm, setShowAddressForm] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
   const [addrForm, setAddrForm] = useState({
     label: "Casa",
     street: "",
     number: "",
     neighborhood: "",
-    city: "Limeira",
-    state: "SP",
+    city: "Queimados",
+    state: "RJ",
     zipCode: "",
   });
 
@@ -122,38 +123,124 @@ export default function ClientPanel({
       return;
     }
 
-    const newAddr = {
-      id: "addr_" + Date.now(),
-      label: addrForm.label,
-      street: addrForm.street,
-      number: addrForm.number,
-      neighborhood: addrForm.neighborhood,
-      city: addrForm.city,
-      state: addrForm.state,
-      zipCode: addrForm.zipCode,
-      latitude: activeAddress ? activeAddress.latitude + (Math.random() - 0.5) * 0.02 : -22.56,
-      longitude: activeAddress ? activeAddress.longitude + (Math.random() - 0.5) * 0.02 : -47.41,
-    };
+    const baseCoords = getCoordinatesForCity(addrForm.city, addrForm.state);
 
-    const updatedUser = {
-      ...currentUser,
-      addresses: [...currentUser.addresses, newAddr],
-      selectedAddressId: newAddr.id,
-    };
+    if (editingAddressId) {
+      const updatedAddresses = currentUser.addresses.map(addr => {
+        if (addr.id === editingAddressId) {
+          return {
+            ...addr,
+            label: addrForm.label,
+            street: addrForm.street,
+            number: addrForm.number,
+            neighborhood: addrForm.neighborhood,
+            city: addrForm.city,
+            state: addrForm.state,
+            zipCode: addrForm.zipCode,
+            latitude: baseCoords.latitude + (Math.random() - 0.5) * 0.012,
+            longitude: baseCoords.longitude + (Math.random() - 0.5) * 0.012,
+          };
+        }
+        return addr;
+      });
 
-    const updatedList = users.map(u => u.id === currentUser.id ? updatedUser : u);
-    onUpdateUsers(updatedList);
-    setShowAddressForm(false);
+      const updatedUser = {
+        ...currentUser,
+        addresses: updatedAddresses,
+      };
+
+      const updatedList = users.map(u => u.id === currentUser.id ? updatedUser : u);
+      onUpdateUsers(updatedList);
+      setEditingAddressId(null);
+      setShowAddressForm(false);
+      setAddrForm({
+        label: "Casa",
+        street: "",
+        number: "",
+        neighborhood: "",
+        city: "Queimados",
+        state: "RJ",
+        zipCode: "",
+      });
+      showToastMessage("Endereço atualizado com sucesso!");
+    } else {
+      const newAddr = {
+        id: "addr_" + Date.now(),
+        label: addrForm.label,
+        street: addrForm.street,
+        number: addrForm.number,
+        neighborhood: addrForm.neighborhood,
+        city: addrForm.city,
+        state: addrForm.state,
+        zipCode: addrForm.zipCode,
+        latitude: baseCoords.latitude + (Math.random() - 0.5) * 0.012,
+        longitude: baseCoords.longitude + (Math.random() - 0.5) * 0.012,
+      };
+
+      const updatedUser = {
+        ...currentUser,
+        addresses: [...currentUser.addresses, newAddr],
+        selectedAddressId: newAddr.id,
+      };
+
+      const updatedList = users.map(u => u.id === currentUser.id ? updatedUser : u);
+      onUpdateUsers(updatedList);
+      setShowAddressForm(false);
+      setAddrForm({
+        label: "Casa",
+        street: "",
+        number: "",
+        neighborhood: "",
+        city: "Queimados",
+        state: "RJ",
+        zipCode: "",
+      });
+      showToastMessage("Novo endereço adicionado com sucesso!");
+    }
+  };
+
+  const handleStartEditAddress = (addr: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingAddressId(addr.id);
     setAddrForm({
-      label: "Casa",
-      street: "",
-      number: "",
-      neighborhood: "",
-      city: "Limeira",
-      state: "SP",
-      zipCode: "",
+      label: addr.label,
+      street: addr.street,
+      number: addr.number,
+      neighborhood: addr.neighborhood,
+      city: addr.city,
+      state: addr.state,
+      zipCode: addr.zipCode,
     });
-    showToastMessage("Novo endereço adicionado com sucesso!");
+    setShowAddressForm(true);
+  };
+
+  const handleDeleteAddress = (addrId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (currentUser.addresses.length <= 1) {
+      alert("Não é possível excluir o único endereço cadastrado. Por favor, adicione ou mantenha ao menos um endereço.");
+      return;
+    }
+
+    if (confirm("Deseja realmente remover permanentemente este endereço?")) {
+      const isDeletingSelected = addrId === currentUser.selectedAddressId;
+      const filteredAddresses = currentUser.addresses.filter(addr => addr.id !== addrId);
+      
+      let nextSelectedId = currentUser.selectedAddressId;
+      if (isDeletingSelected) {
+        nextSelectedId = filteredAddresses[0].id;
+      }
+
+      const updatedUser = {
+        ...currentUser,
+        addresses: filteredAddresses,
+        selectedAddressId: nextSelectedId,
+      };
+
+      const updatedList = users.map(u => u.id === currentUser.id ? updatedUser : u);
+      onUpdateUsers(updatedList);
+      showToastMessage("Endereço excluído com sucesso!");
+    }
   };
 
   // Distance helper relative to selected active consumer address
@@ -368,7 +455,7 @@ export default function ClientPanel({
       {/* Internal Client Module Navigation */}
       <div className="flex bg-[#F2F2EB] rounded-[24px] border border-[#E6E6DF] shadow-xs p-1.5 overflow-x-auto gap-1">
         {[
-          { id: "home", label: "Vitrine de Alimentos", icon: "Compass" },
+          { id: "home", label: "Feirinha", icon: "Compass" },
           { id: "search", label: "Pesquisar Produtos", icon: "Search" },
           { id: "cart", label: `Carrinho (${cart.reduce((s, c) => s + c.quantity, 0)})`, icon: "ShoppingBag" },
           { id: "orders", label: `Meus Pedidos (${orders.filter(o => o.userId === currentUser.id && o.status !== "entregue").length})`, icon: "Activity" },
@@ -612,9 +699,15 @@ export default function ClientPanel({
                     </div>
                     <div>
                       <h3 className="text-lg font-serif font-bold text-white leading-tight">{producers[0].propertyName}</h3>
-                      <div className="flex items-center gap-1 text-[#E9EDC9] text-xs font-bold mt-1">
-                        <span>★ 4.9</span>
-                        <span className="text-white/60 font-normal">(128 avaliações)</span>
+                      <div className="flex items-center gap-1.5 text-[#E9EDC9] text-xs font-bold mt-1">
+                        {producers[0].ratingCount > 0 ? (
+                          <>
+                            <span>★ {producers[0].ratingAverage.toFixed(1)}</span>
+                            <span className="text-white/60 font-normal">({producers[0].ratingCount} {producers[0].ratingCount === 1 ? "avaliação" : "avaliações"})</span>
+                          </>
+                        ) : (
+                          <span className="text-white/60 font-medium">Sem avaliações ainda</span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -810,10 +903,16 @@ export default function ClientPanel({
                       <img src={grower.logoUrl} alt="logo" className="w-16 h-16 rounded-2xl object-cover border-2 border-white/20 bg-white" />
                       <div>
                         <h2 className="text-xl sm:text-2xl font-display font-bold">{grower.propertyName}</h2>
-                        <div className="flex gap-1 items-center text-xs mt-1 text-emerald-300">
-                          <DynamicIcon name="Star" className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                          <span className="font-bold text-white">{grower.ratingAverage}</span>
-                          <span>({grower.ratingCount} avaliações)</span>
+                        <div className="flex gap-1.5 items-center text-xs mt-1 text-emerald-300">
+                          <DynamicIcon name="Star" className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />
+                          {grower.ratingCount > 0 ? (
+                            <>
+                              <span className="font-bold text-white">{grower.ratingAverage.toFixed(1)}</span>
+                              <span>({grower.ratingCount} {grower.ratingCount === 1 ? "avaliação" : "avaliações"})</span>
+                            </>
+                          ) : (
+                            <span className="text-stone-300 font-medium">Sem avaliações ainda</span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1272,9 +1371,9 @@ export default function ClientPanel({
 
       {/* RENDER VIEW FAVORITES LOOP */}
       {currentScreen === "favorites" && !viewingProducerId && (
-        <div className="space-y-6 animate-fade-in bg-white p-6 rounded-3xl border border-stone-100 shadow-2xs">
+        <div className="space-y-6 animate-fade-in bg-white p-6 rounded-3xl border border-stone-101 shadow-2xs">
           <div>
-            <h3 className="font-display font-bold text-stone-900 text-base">Meus Produtores Seguidos ({currentUser.followedProducerIds.length})</h3>
+            <h3 className="font-display font-bold text-stone-900 text-base">Meus Produtores Seguidos</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
               {currentUser.followedProducerIds.map((pId) => {
                 const prod = producers.find(p => p.id === pId);
@@ -1292,7 +1391,7 @@ export default function ClientPanel({
                       onClick={() => setViewingProducerId(prod.id)}
                       className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer"
                     >
-                      Ver catalogo
+                      Ver catálogo
                     </button>
                   </div>
                 );
@@ -1300,8 +1399,8 @@ export default function ClientPanel({
             </div>
           </div>
 
-          <div className="pt-6 border-t border-stone-101">
-            <h3 className="font-display font-bold text-stone-900 text-base">Produtos Favoritos ({currentUser.favoriteProductIds.length})</h3>
+          <div className="pt-6 border-t border-stone-101 border-dashed">
+            <h3 className="font-display font-bold text-stone-900 text-base">Produtos Favoritos</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-3">
               {currentUser.favoriteProductIds.map((pId) => {
                 const pItem = products.find(p => p.id === pId);
@@ -1311,7 +1410,7 @@ export default function ClientPanel({
                     <div className="flex gap-2.5 items-center min-w-0">
                       <img src={pItem.imageUrl} alt={pItem.name} className="w-10 h-10 rounded-lg object-cover shrink-0" />
                       <div className="min-w-0">
-                        <p className="font-bold text-xs text-stone-800 truncate">{pItem.name}</p>
+                        <p className="font-bold text-xs text-stone-880 truncate">{pItem.name}</p>
                         <p className="text-[10px] text-emerald-800 font-semibold font-mono">R$ {pItem.price.toFixed(2)}</p>
                       </div>
                     </div>
@@ -1436,17 +1535,19 @@ export default function ClientPanel({
               {/* Add New Address Form Expansion */}
               {showAddressForm && (
                 <form onSubmit={handleAddNewAddressSubmit} className="p-4 bg-stone-50 rounded-2xl border border-stone-150 space-y-3 animate-fade-in">
-                  <span className="text-[10px] font-bold text-stone-500 uppercase block tracking-wider">Novo Endereço de Entrega</span>
+                  <span className="text-[10px] font-bold text-[#5A5A40] uppercase block tracking-wider">
+                    {editingAddressId ? `Editar Endereço: ${addrForm.label}` : "Novo Endereço de Entrega"}
+                  </span>
                   
                   <div className="grid grid-cols-3 gap-2">
                     <div className="col-span-1">
-                      <label className="text-[10px] text-stone-600 font-semibold block mb-1">Identificar como (Ex: Sítio)</label>
+                      <label className="text-[10px] text-stone-600 font-semibold block mb-1">Identificar como</label>
                       <input
                         type="text"
                         className="w-full p-2 bg-white border border-stone-200 rounded-lg text-xs"
                         value={addrForm.label}
                         onChange={(e) => setAddrForm({ ...addrForm, label: e.target.value })}
-                        placeholder="Ex: Trabalho"
+                        placeholder="Ex: Trabalho, Casa, Sítio"
                       />
                     </div>
                     <div className="col-span-2">
@@ -1501,17 +1602,40 @@ export default function ClientPanel({
                         className="w-full p-2 bg-white border border-stone-200 rounded-lg text-xs font-mono"
                         value={addrForm.zipCode}
                         onChange={(e) => setAddrForm({ ...addrForm, zipCode: e.target.value })}
-                        placeholder="13485-100"
+                        placeholder="26385-230"
                       />
                     </div>
                   </div>
 
-                  <button
-                    type="submit"
-                    className="w-full bg-[#5A5A40] text-white font-bold py-2 rounded-xl text-xs mt-2 cursor-pointer"
-                  >
-                    Adicionar e Ativar Endereço
-                  </button>
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="submit"
+                      className="flex-1 bg-[#5A5A40] text-white font-bold py-2 rounded-xl text-xs cursor-pointer hover:bg-[#464632] transition-colors"
+                    >
+                      {editingAddressId ? "Salvar Alterações de Endereço" : "Adicionar e Ativar Endereço"}
+                    </button>
+                    {editingAddressId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingAddressId(null);
+                          setShowAddressForm(false);
+                          setAddrForm({
+                            label: "Casa",
+                            street: "",
+                            number: "",
+                            neighborhood: "",
+                            city: "Queimados",
+                            state: "RJ",
+                            zipCode: "",
+                          });
+                        }}
+                        className="bg-stone-200 hover:bg-stone-300 text-stone-700 font-bold px-4 py-2 rounded-xl text-xs cursor-pointer transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                    )}
+                  </div>
                 </form>
               )}
 
@@ -1520,40 +1644,62 @@ export default function ClientPanel({
                 {currentUser.addresses.map((addr) => {
                   const isSelected = addr.id === currentUser.selectedAddressId;
                   return (
-                    <label
+                    <div
                       key={addr.id}
                       onClick={() => handleSelectAddress(addr.id)}
-                      className={`p-4 rounded-2xl border flex items-start gap-3 cursor-pointer transition-all ${
+                      className={`p-4 rounded-2xl border flex items-start justify-between gap-4 cursor-pointer transition-all ${
                         isSelected
                           ? "bg-emerald-50/50 border-emerald-500 scale-[1.01] shadow-xs"
                           : "bg-stone-50 border-stone-200 hover:border-stone-300"
                       }`}
                     >
-                      <input
-                        type="radio"
-                        checked={isSelected}
-                        onChange={() => handleSelectAddress(addr.id)}
-                        className="accent-emerald-600 mt-1 cursor-pointer w-4 h-4"
-                      />
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                            isSelected ? "bg-emerald-100 text-emerald-800" : "bg-stone-200 text-stone-600"
-                          }`}>
-                            {addr.label}
-                          </span>
-                          {isSelected && (
-                            <span className="text-[9px] text-emerald-700 font-semibold">Endereço de Entrega Selecionado</span>
-                          )}
+                      <div className="flex items-start gap-3 min-w-0">
+                        <input
+                          type="radio"
+                          checked={isSelected}
+                          onChange={() => handleSelectAddress(addr.id)}
+                          className="accent-emerald-600 mt-1 cursor-pointer w-4 h-4 shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                              isSelected ? "bg-emerald-100 text-emerald-800" : "bg-stone-200 text-stone-600"
+                            }`}>
+                              {addr.label}
+                            </span>
+                            {isSelected && (
+                              <span className="text-[9px] text-emerald-700 font-semibold">Endereço de Entrega Selecionado</span>
+                            )}
+                          </div>
+                          <p className="text-xs font-semibold text-stone-850 mt-1">
+                            {addr.street}, {addr.number}
+                          </p>
+                          <p className="text-[10px] text-stone-500">
+                            {addr.neighborhood} - {addr.city} / {addr.state}
+                          </p>
                         </div>
-                        <p className="text-xs font-semibold text-stone-850 mt-1">
-                          {addr.street}, {addr.number}
-                        </p>
-                        <p className="text-[10px] text-stone-500">
-                          {addr.neighborhood} - {addr.city} / {addr.state}
-                        </p>
                       </div>
-                    </label>
+
+                      {/* Edit / Delete option actions */}
+                      <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={(e) => handleStartEditAddress(addr, e)}
+                          className="p-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
+                          title="Editar Endereço"
+                        >
+                          <DynamicIcon name="Edit3" className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteAddress(addr.id, e)}
+                          className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 transition-colors cursor-pointer"
+                          title="Excluir Endereço"
+                        >
+                          <DynamicIcon name="Trash2" className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
                   );
                 })}
               </div>

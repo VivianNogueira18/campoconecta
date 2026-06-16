@@ -6,6 +6,7 @@
 import React, { useState } from "react";
 import { User, Producer, UserAddress } from "../types";
 import { DynamicIcon } from "./Icons";
+import { getCoordinatesForCity } from "../data";
 
 interface AuthPanelProps {
   users: User[];
@@ -243,6 +244,7 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
     const newUserId = "user_" + Date.now();
     const addressId = "addr_" + Date.now();
 
+    const baseCoords = getCoordinatesForCity(city, state);
     const addressObj: UserAddress = {
       id: addressId,
       label: addrLabel,
@@ -252,8 +254,8 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
       city,
       state,
       zipCode,
-      latitude: -22.7160 + (Math.random() - 0.5) * 0.04, // random realistic offsets around Queimados
-      longitude: -43.5570 + (Math.random() - 0.5) * 0.04,
+      latitude: baseCoords.latitude + (Math.random() - 0.5) * 0.015,
+      longitude: baseCoords.longitude + (Math.random() - 0.5) * 0.015,
     };
 
     const newUser: User = {
@@ -288,8 +290,8 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
         id: newUserId,
         propertyName: propertyName,
         address: propertyAddress,
-        latitude: addressObj.latitude,
-        longitude: addressObj.longitude,
+        latitude: addressObj.latitude + (Math.random() - 0.5) * 0.012,
+        longitude: addressObj.longitude + (Math.random() - 0.5) * 0.012,
         logoUrl: "https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?auto=format&fit=crop&q=80&w=150",
         coverUrl: "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&q=80&w=800",
         description: description || "Agroecologia familiar com amor à terra e orgulho no cultivo.",

@@ -437,7 +437,29 @@ export default function App() {
   };
 
   const handleAddReview = (newRev: Review) => {
-    setReviews((prev) => [newRev, ...prev]);
+    setReviews((prev) => {
+      const nextReviews = [newRev, ...prev];
+      
+      // Now update the producers state with the recalculated average and count
+      setProducers((prevProducers) =>
+        prevProducers.map((prod) => {
+          if (prod.id === newRev.producerId) {
+            const prodReviews = nextReviews.filter((r) => r.producerId === prod.id && r.isApproved);
+            const count = prodReviews.length;
+            const sum = prodReviews.reduce((sum, r) => sum + r.rating, 0);
+            const avg = count > 0 ? Math.round((sum / count) * 10) / 10 : 5.0;
+            return {
+              ...prod,
+              ratingAverage: avg,
+              ratingCount: count,
+            };
+          }
+          return prod;
+        })
+      );
+
+      return nextReviews;
+    });
   };
 
   if (!activeUserId || !currentUser) {
@@ -537,7 +559,7 @@ export default function App() {
           <div className="space-y-1 text-center sm:text-left">
             <p className="text-[11px] uppercase tracking-wider text-stone-500 font-bold leading-none">Você está navegando como:</p>
             <h3 className="text-xl font-serif font-bold flex items-center justify-center sm:justify-start gap-2">
-              {activeRole === "client" && <><DynamicIcon name="User" className="w-5 h-5 text-[#2A6F2E]" /> Painel de Consumidor (Cliente)</>}
+              {activeRole === "client" && <><DynamicIcon name="User" className="w-5 h-5 text-[#2A6F2E]" /> Painel de Consumidor</>}
               {activeRole === "producer" && <><DynamicIcon name="Store" className="w-5 h-5 text-[#D35400]" /> Painel do Produtor ({activeProducer?.propertyName || "Minha Colheita"})</>}
               {activeRole === "admin" && <><DynamicIcon name="Shield" className="w-5 h-5 text-[#1F3A52]" /> Painel de Auditoria (Admin)</>}
             </h3>
@@ -552,7 +574,7 @@ export default function App() {
               className="bg-transparent text-stone-850 text-xs sm:text-sm font-bold w-full outline-none cursor-pointer pr-6 text-ellipsis overflow-hidden"
               style={{ WebkitAppearance: 'none', appearance: 'none' }}
             >
-              <option value="client" className="text-stone-850 font-bold">Cliente e Consumidor</option>
+              <option value="client" className="text-stone-850 font-bold">Consumidor</option>
               <option value="producer" className="text-stone-850 font-bold">Produtor ({activeProducer?.propertyName || "Criar Lojinha"})</option>
               {isVivian && (
                 <option value="admin" className="text-stone-850 font-bold">Administrador ADM</option>
@@ -579,8 +601,8 @@ export default function App() {
             {activeRole === "client" && !currentUser.isClient && (
               <div className="bg-white p-8 rounded-[32px] border border-[#E6E6DF] text-center max-w-md mx-auto space-y-4 shadow-sm my-10">
                 <DynamicIcon name="ShoppingBag" className="w-12 h-12 text-[#8E8E7A] mx-auto" />
-                <h3 className="font-serif font-bold text-lg text-[#5A5A40]">Ativar Perfil de Comprador (Cliente)</h3>
-                <p className="text-xs text-[#8E8E7A] leading-relaxed">Você atualmente não possui um perfil de cliente cadastrado neste usuário ou ele foi removido anteriormente.</p>
+                <h3 className="font-serif font-bold text-lg text-[#5A5A40]">Ativar Perfil de Consumidor</h3>
+                <p className="text-xs text-[#8E8E7A] leading-relaxed">Você atualmente não possui um perfil de consumidor cadastrado neste usuário ou ele foi removido anteriormente.</p>
                 <button
                   onClick={() => {
                     setUsers((prev) =>
@@ -590,7 +612,7 @@ export default function App() {
                   }}
                   className="bg-[#5A5A40] hover:bg-[#4A4A35] text-white font-bold py-3 px-6 rounded-xl text-xs cursor-pointer shadow-sm transition-all"
                 >
-                  Criar Conta de Cliente Agora
+                  Criar Conta de Consumidor Agora
                 </button>
               </div>
             )}
