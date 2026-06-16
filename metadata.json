@@ -1,0 +1,6 @@
+{
+  "name": "CampoConecta",
+  "description": "Uma plataforma que conecta produtores rurais a consumidores locais, viabilizando a comercialização direta de alimentos frescos, saudáveis e artesanais.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
