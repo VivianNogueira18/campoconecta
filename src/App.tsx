@@ -145,58 +145,7 @@ export default function App() {
   const prevChatsRef = useRef<ChatMessage[]>([]);
   const prevReviewsRef = useRef<Review[]>([]);
 
-  const [isSyncing, setIsSyncing] = useState(false);
-
-  const handleManualSync = async () => {
-    if (!isSupabaseConfigured) {
-      alert("Aviso: Supabase não detectado nas variáveis de ambiente. Sincronização em nuvem inativa, usando LocalStorage.");
-      return;
-    }
-    setIsSyncing(true);
-    try {
-      console.log("Iniciando sincronização manual com o Supabase...");
-
-      let dbUsers = await usersService.query();
-      let dbProducers = await producersService.query();
-      let dbProducts = await productsService.query();
-      let dbOrders = await ordersService.query();
-      let dbChats = await chatsService.query();
-      let dbReviews = await reviewsService.query();
-
-      const filteredUsers = (dbUsers || []).map((u) => ({
-        ...u,
-        followedProducerIds: u.followedProducerIds ? u.followedProducerIds.filter((pId) => pId !== "producer_manoel" && pId !== "producer_maria") : [],
-        favoriteProductIds: u.favoriteProductIds ? u.favoriteProductIds.filter((pId) => !pId.startsWith("prod_")) : []
-      }));
-      const filteredProducers = (dbProducers || []).filter((p) => p.id !== "producer_manoel" && p.id !== "producer_maria");
-      const filteredProducts = (dbProducts || []).filter((p) => !p.id.startsWith("prod_") && p.producerId !== "producer_manoel" && p.producerId !== "producer_maria");
-      const filteredOrders = (dbOrders || []).filter((o) => o.id !== "ord_201" && o.producerId !== "producer_manoel" && o.producerId !== "producer_maria");
-      const filteredReviews = (dbReviews || []).filter((r) => r.id !== "rev_1" && r.producerId !== "producer_manoel" && r.producerId !== "producer_maria");
-
-      setUsers(filteredUsers);
-      setProducers(filteredProducers);
-      setProducts(filteredProducts);
-      setOrders(filteredOrders);
-      if (dbChats) setChatMessages(dbChats);
-      setReviews(filteredReviews);
-
-      prevUsersRef.current = filteredUsers;
-      prevProducersRef.current = dbProducers || [];
-      prevProductsRef.current = dbProducts || [];
-      prevOrdersRef.current = dbOrders || [];
-      prevChatsRef.current = dbChats || [];
-      prevReviewsRef.current = dbReviews || [];
-
-      alert("Sincronização concluída! Dados atualizados com as últimas informações em tempo real.");
-    } catch (err) {
-      console.error("Erro na sincronização manual:", err);
-      alert("Erro ao receber novas atualizações. Por favor, tente novamente.");
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  // 1. CARREGAR DADOS DO SUPABASE NO STARTUP (SE CONFIGURADO)
+  // 1. CARREGAR DADOS DO SUPABASE NO STARTUP (SE CONFIGURADO) - TOTALMENTE RESILIENTE
   useEffect(() => {
     if (!isSupabaseConfigured) {
       isInitialLoadingRef.current = false;
@@ -205,73 +154,146 @@ export default function App() {
 
     const loadAndSeedSupabase = async () => {
       try {
-        console.log("Supabase detectado de forma ativa! Sincronizando tabelas em tempo real...");
+        console.log("Supabase detectado de forma ativa! Sincronizando tabelas de forma independente...");
 
-        let dbUsers = await usersService.query();
-        let dbProducers = await producersService.query();
-        let dbProducts = await productsService.query();
-        let dbOrders = await ordersService.query();
-        let dbChats = await chatsService.query();
-        let dbReviews = await reviewsService.query();
+        let dbUsers: User[] | null = null;
+        let dbProducers: Producer[] | null = null;
+        let dbProducts: Product[] | null = null;
+        let dbOrders: Order[] | null = null;
+        let dbChats: ChatMessage[] | null = null;
+        let dbReviews: Review[] | null = null;
 
-        // Se o banco estiver vazio, semeamos os dados iniciais ricos
-        if (dbUsers && dbUsers.length === 0) {
-          console.log("Seeding inicial: Gravando usuários no Supabase...");
-          await Promise.all(INITIAL_USERS.map(u => usersService.create(u)));
+        try {
           dbUsers = await usersService.query();
+        } catch (e) {
+          console.error("Erro ao buscar usuários na inicialização do Supabase:", e);
         }
-        if (dbProducers && dbProducers.length === 0) {
-          console.log("Seeding inicial: Gravando produtores no Supabase...");
-          await Promise.all(INITIAL_PRODUCERS.map(p => producersService.create(p)));
+
+        try {
           dbProducers = await producersService.query();
+        } catch (e) {
+          console.error("Erro ao buscar produtores na inicialização do Supabase:", e);
         }
-        if (dbProducts && dbProducts.length === 0) {
-          console.log("Seeding inicial: Gravando produtos no Supabase...");
-          await Promise.all(INITIAL_PRODUCTS.map(p => productsService.create(p)));
+
+        try {
           dbProducts = await productsService.query();
+        } catch (e) {
+          console.error("Erro ao buscar produtos na inicialização do Supabase:", e);
         }
-        if (dbOrders && dbOrders.length === 0) {
-          console.log("Seeding inicial: Gravando pedidos no Supabase...");
-          await Promise.all(INITIAL_ORDERS.map(o => ordersService.create(o)));
+
+        try {
           dbOrders = await ordersService.query();
+        } catch (e) {
+          console.error("Erro ao buscar pedidos na inicialização do Supabase:", e);
         }
-        if (dbChats && dbChats.length === 0) {
-          console.log("Seeding inicial: Gravando mensagens de chat no Supabase...");
-          await Promise.all(INITIAL_CHAT.map(c => chatsService.create(c)));
+
+        try {
           dbChats = await chatsService.query();
+        } catch (e) {
+          console.error("Erro ao buscar mensagens do chat na inicialização do Supabase:", e);
         }
-        if (dbReviews && dbReviews.length === 0) {
-          console.log("Seeding inicial: Gravando avaliações no Supabase...");
-          await Promise.all(INITIAL_REVIEWS.map(r => reviewsService.create(r)));
+
+        try {
           dbReviews = await reviewsService.query();
+        } catch (e) {
+          console.error("Erro ao buscar avaliações na inicialização do Supabase:", e);
         }
 
-        // Filter out any loaded database entries that are mock
-        const filteredUsers = (dbUsers || []).map((u) => ({
-          ...u,
-          followedProducerIds: u.followedProducerIds ? u.followedProducerIds.filter((pId) => pId !== "producer_manoel" && pId !== "producer_maria") : [],
-          favoriteProductIds: u.favoriteProductIds ? u.favoriteProductIds.filter((pId) => !pId.startsWith("prod_")) : []
-        }));
-        const filteredProducers = (dbProducers || []).filter((p) => p.id !== "producer_manoel" && p.id !== "producer_maria");
-        const filteredProducts = (dbProducts || []).filter((p) => !p.id.startsWith("prod_") && p.producerId !== "producer_manoel" && p.producerId !== "producer_maria");
-        const filteredOrders = (dbOrders || []).filter((o) => o.id !== "ord_201" && o.producerId !== "producer_manoel" && o.producerId !== "producer_maria");
-        const filteredReviews = (dbReviews || []).filter((r) => r.id !== "rev_1" && r.producerId !== "producer_manoel" && r.producerId !== "producer_maria");
+        // Se o banco estiver vazio, semeamos os dados iniciais ricos de forma independente
+        if (dbUsers !== null && dbUsers.length === 0) {
+          console.log("Seeding inicial: Gravando usuários no Supabase...");
+          try {
+            await Promise.all(INITIAL_USERS.map(u => usersService.create(u)));
+            dbUsers = await usersService.query();
+          } catch (e) {
+            console.error("Erro ao semear usuários:", e);
+          }
+        }
+        if (dbProducers !== null && dbProducers.length === 0) {
+          console.log("Seeding inicial: Gravando produtores no Supabase...");
+          try {
+            await Promise.all(INITIAL_PRODUCERS.map(p => producersService.create(p)));
+            dbProducers = await producersService.query();
+          } catch (e) {
+            console.error("Erro ao semear produtores:", e);
+          }
+        }
+        if (dbProducts !== null && dbProducts.length === 0) {
+          console.log("Seeding inicial: Gravando produtos no Supabase...");
+          try {
+            await Promise.all(INITIAL_PRODUCTS.map(p => productsService.create(p)));
+            dbProducts = await productsService.query();
+          } catch (e) {
+            console.error("Erro ao semear produtos:", e);
+          }
+        }
+        if (dbOrders !== null && dbOrders.length === 0) {
+          console.log("Seeding inicial: Gravando pedidos no Supabase...");
+          try {
+            await Promise.all(INITIAL_ORDERS.map(o => ordersService.create(o)));
+            dbOrders = await ordersService.query();
+          } catch (e) {
+            console.error("Erro ao semear pedidos:", e);
+          }
+        }
+        if (dbChats !== null && dbChats.length === 0) {
+          console.log("Seeding inicial: Gravando mensagens de chat no Supabase...");
+          try {
+            await Promise.all(INITIAL_CHAT.map(c => chatsService.create(c)));
+            dbChats = await chatsService.query();
+          } catch (e) {
+            console.error("Erro ao semear mensagens de chat:", e);
+          }
+        }
+        if (dbReviews !== null && dbReviews.length === 0) {
+          console.log("Seeding inicial: Gravando avaliações no Supabase...");
+          try {
+            await Promise.all(INITIAL_REVIEWS.map(r => reviewsService.create(r)));
+            dbReviews = await reviewsService.query();
+          } catch (e) {
+            console.error("Erro ao semear avaliações:", e);
+          }
+        }
 
-        // Atualizar estados do React
-        setUsers(filteredUsers);
-        setProducers(filteredProducers);
-        setProducts(filteredProducts);
-        setOrders(filteredOrders);
-        if (dbChats) setChatMessages(dbChats);
-        setReviews(filteredReviews);
+        // Atualizar estados e referências somente se os dados correspondentes foram obtidos com sucesso
+        if (dbUsers !== null) {
+          const filteredUsers = dbUsers.map((u) => ({
+            ...u,
+            followedProducerIds: u.followedProducerIds ? u.followedProducerIds.filter((pId) => pId !== "producer_manoel" && pId !== "producer_maria") : [],
+            favoriteProductIds: u.favoriteProductIds ? u.favoriteProductIds.filter((pId) => !pId.startsWith("prod_")) : []
+          }));
+          setUsers(filteredUsers);
+          prevUsersRef.current = filteredUsers;
+        }
 
-        // Atualizar referências
-        prevUsersRef.current = filteredUsers;
-        prevProducersRef.current = dbProducers || []; // Leave raw to trigger the automatic deletion of omitted items via sync effects
-        prevProductsRef.current = dbProducts || []; // Leave raw to trigger the automatic deletion of omitted items via sync effects
-        prevOrdersRef.current = dbOrders || []; // Leave raw to trigger the automatic deletion of omitted items via sync effects
-        prevChatsRef.current = dbChats || [];
-        prevReviewsRef.current = dbReviews || []; // Leave raw to trigger the automatic deletion of omitted items via sync effects
+        if (dbProducers !== null) {
+          const filteredProducers = dbProducers.filter((p) => p.id !== "producer_manoel" && p.id !== "producer_maria");
+          setProducers(filteredProducers);
+          prevProducersRef.current = filteredProducers;
+        }
+
+        if (dbProducts !== null) {
+          const filteredProducts = dbProducts.filter((p) => !p.id.startsWith("prod_") && p.producerId !== "producer_manoel" && p.producerId !== "producer_maria");
+          setProducts(filteredProducts);
+          prevProductsRef.current = filteredProducts;
+        }
+
+        if (dbOrders !== null) {
+          const filteredOrders = dbOrders.filter((o) => o.id !== "ord_201" && o.producerId !== "producer_manoel" && o.producerId !== "producer_maria");
+          setOrders(filteredOrders);
+          prevOrdersRef.current = filteredOrders;
+        }
+
+        if (dbChats !== null) {
+          setChatMessages(dbChats);
+          prevChatsRef.current = dbChats;
+        }
+
+        if (dbReviews !== null) {
+          const filteredReviews = dbReviews.filter((r) => r.id !== "rev_1" && r.producerId !== "producer_manoel" && r.producerId !== "producer_maria");
+          setReviews(filteredReviews);
+          prevReviewsRef.current = filteredReviews;
+        }
 
       } catch (err) {
         console.error("Erro durante a sincronização inicial do Supabase:", err);
@@ -282,6 +304,103 @@ export default function App() {
 
     loadAndSeedSupabase();
   }, []);
+
+  // 1.5. SINCRONIZAÇÃO AUTOMÁTICA EM SEGUNDO PLANO (A cada 5 segundos realiza consulta silenciosa)
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        let dbUsers = null;
+        try {
+          dbUsers = await usersService.query();
+        } catch (e) {
+          // Silencioso para não incomodar o usuário na UI
+        }
+
+        let dbProducers = null;
+        try {
+          dbProducers = await producersService.query();
+        } catch (e) {}
+
+        let dbProducts = null;
+        try {
+          dbProducts = await productsService.query();
+        } catch (e) {}
+
+        let dbOrders = null;
+        try {
+          dbOrders = await ordersService.query();
+        } catch (e) {}
+
+        let dbChats = null;
+        try {
+          dbChats = await chatsService.query();
+        } catch (e) {}
+
+        let dbReviews = null;
+        try {
+          dbReviews = await reviewsService.query();
+        } catch (e) {}
+
+        // Atualizar estados de forma bilateral e reconciliar
+        if (dbUsers !== null) {
+          const filteredUsers = dbUsers.map((u) => ({
+            ...u,
+            followedProducerIds: u.followedProducerIds ? u.followedProducerIds.filter((pId) => pId !== "producer_manoel" && pId !== "producer_maria") : [],
+            favoriteProductIds: u.favoriteProductIds ? u.favoriteProductIds.filter((pId) => !pId.startsWith("prod_")) : []
+          }));
+          if (JSON.stringify(filteredUsers) !== JSON.stringify(users)) {
+            setUsers(filteredUsers);
+            prevUsersRef.current = filteredUsers;
+          }
+        }
+
+        if (dbProducers !== null) {
+          const filteredProducers = dbProducers.filter((p) => p.id !== "producer_manoel" && p.id !== "producer_maria");
+          if (JSON.stringify(filteredProducers) !== JSON.stringify(producers)) {
+            setProducers(filteredProducers);
+            prevProducersRef.current = filteredProducers;
+          }
+        }
+
+        if (dbProducts !== null) {
+          const filteredProducts = dbProducts.filter((p) => !p.id.startsWith("prod_") && p.producerId !== "producer_manoel" && p.producerId !== "producer_maria");
+          if (JSON.stringify(filteredProducts) !== JSON.stringify(products)) {
+            setProducts(filteredProducts);
+            prevProductsRef.current = filteredProducts;
+          }
+        }
+
+        if (dbOrders !== null) {
+          const filteredOrders = dbOrders.filter((o) => o.id !== "ord_201" && o.producerId !== "producer_manoel" && o.producerId !== "producer_maria");
+          if (JSON.stringify(filteredOrders) !== JSON.stringify(orders)) {
+            setOrders(filteredOrders);
+            prevOrdersRef.current = filteredOrders;
+          }
+        }
+
+        if (dbChats !== null) {
+          if (JSON.stringify(dbChats) !== JSON.stringify(chatMessages)) {
+            setChatMessages(dbChats);
+            prevChatsRef.current = dbChats;
+          }
+        }
+
+        if (dbReviews !== null) {
+          const filteredReviews = dbReviews.filter((r) => r.id !== "rev_1" && r.producerId !== "producer_manoel" && r.producerId !== "producer_maria");
+          if (JSON.stringify(filteredReviews) !== JSON.stringify(reviews)) {
+            setReviews(filteredReviews);
+            prevReviewsRef.current = filteredReviews;
+          }
+        }
+      } catch (err) {
+        console.error("Erro silencioso no loop de auto-sync:", err);
+      }
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [users, producers, products, orders, chatMessages, reviews]);
 
   // 2. DETECTAR MUTAÇÕES E PROPAGAR GRAVAÇÃO NO SUPABASE
   // Sincronizar Usuários
@@ -636,44 +755,23 @@ export default function App() {
             </h3>
           </div>
           
-          {/* Custom Stylized Select Dropdown (Lista Suspensa) for simplified profile access and Cloud Sync */}
-          <div className="flex flex-row items-center gap-2 w-full sm:w-auto">
-            {isSupabaseConfigured && (
-              <button
-                onClick={handleManualSync}
-                disabled={isSyncing}
-                title="Sincronizar com o Banco de Dados em Nuvem"
-                className={`flex items-center gap-1.5 px-3.5 py-2 border rounded-2xl text-xs font-bold shadow-sm transition-all cursor-pointer grow sm:grow-0 justify-center h-[38px] ${
-                  isSyncing
-                    ? "bg-stone-100 text-stone-400 border-stone-200"
-                    : "bg-[#2A6F2E]/10 hover:bg-[#2A6F2E]/20 text-[#2A6F2E] border-[#2A6F2E]/20"
-                }`}
-              >
-                <DynamicIcon
-                  name="RefreshCw"
-                  className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`}
-                />
-                <span>{isSyncing ? "Sincronizando..." : "Sincronizar"}</span>
-              </button>
-            )}
-
-            <div className="relative flex items-center bg-white shadow-sm border border-stone-300 px-3 py-2 rounded-2xl w-full sm:w-auto min-w-[220px] h-[38px]">
-              <span className="text-[11px] font-bold text-stone-500 mr-2 uppercase shrink-0 font-mono">Ir para:</span>
-              <select
-                value={activeRole}
-                onChange={(e) => setActiveRole(e.target.value as "client" | "producer" | "admin")}
-                className="bg-transparent text-stone-850 text-xs sm:text-sm font-bold w-full outline-none cursor-pointer pr-6 text-ellipsis overflow-hidden"
-                style={{ WebkitAppearance: 'none', appearance: 'none' }}
-              >
-                <option value="client" className="text-stone-850 font-bold">Consumidor</option>
-                <option value="producer" className="text-stone-850 font-bold">Produtor ({activeProducer?.propertyName || "Criar Lojinha"})</option>
-                {isVivian && (
-                  <option value="admin" className="text-stone-850 font-bold">Administrador ADM</option>
-                )}
-              </select>
-              <div className="absolute right-3 pointer-events-none text-stone-500">
-                <span className="text-xs">▼</span>
-              </div>
+          {/* Custom Stylized Select Dropdown (Lista Suspensa) for simplified profile access */}
+          <div className="relative flex items-center bg-white shadow-sm border border-stone-300 px-3 py-2 rounded-2xl w-full sm:w-auto min-w-[280px]">
+            <span className="text-[11px] font-bold text-stone-500 mr-2 uppercase shrink-0 font-mono">Ir para:</span>
+            <select
+              value={activeRole}
+              onChange={(e) => setActiveRole(e.target.value as "client" | "producer" | "admin")}
+              className="bg-transparent text-stone-850 text-xs sm:text-sm font-bold w-full outline-none cursor-pointer pr-6 text-ellipsis overflow-hidden"
+              style={{ WebkitAppearance: 'none', appearance: 'none' }}
+            >
+              <option value="client" className="text-stone-850 font-bold">Consumidor</option>
+              <option value="producer" className="text-stone-850 font-bold">Produtor ({activeProducer?.propertyName || "Criar Lojinha"})</option>
+              {isVivian && (
+                <option value="admin" className="text-stone-850 font-bold">Administrador ADM</option>
+              )}
+            </select>
+            <div className="absolute right-3 pointer-events-none text-stone-500">
+              <span className="text-xs">▼</span>
             </div>
           </div>
         </div>
