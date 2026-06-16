@@ -34,17 +34,24 @@ export default function App() {
   // MASTER STATES - Initialized from LocalStorage if available, otherwise fallback to our rich templates
   const [users, setUsers] = useState<User[]>(() => {
     const cached = localStorage.getItem("cc_users");
-    return cached ? JSON.parse(cached) : INITIAL_USERS;
+    const raw = cached ? JSON.parse(cached) : INITIAL_USERS;
+    return raw.map((u: User) => ({
+      ...u,
+      followedProducerIds: u.followedProducerIds ? u.followedProducerIds.filter((pId) => pId !== "producer_manoel" && pId !== "producer_maria" && pId !== "user_vivian") : [],
+      favoriteProductIds: u.favoriteProductIds ? u.favoriteProductIds.filter((pId) => !pId.startsWith("prod_")) : []
+    }));
   });
 
   const [producers, setProducers] = useState<Producer[]>(() => {
     const cached = localStorage.getItem("cc_producers");
-    return cached ? JSON.parse(cached) : INITIAL_PRODUCERS;
+    const raw: Producer[] = cached ? JSON.parse(cached) : INITIAL_PRODUCERS;
+    return raw.filter((p) => p.id !== "producer_manoel" && p.id !== "producer_maria" && p.id !== "user_vivian");
   });
 
   const [products, setProducts] = useState<Product[]>(() => {
     const cached = localStorage.getItem("cc_products");
-    return cached ? JSON.parse(cached) : INITIAL_PRODUCTS;
+    const raw: Product[] = cached ? JSON.parse(cached) : INITIAL_PRODUCTS;
+    return raw.filter((p) => !p.id.startsWith("prod_") && p.producerId !== "producer_manoel" && p.producerId !== "producer_maria" && p.producerId !== "user_vivian");
   });
 
   const [selos, setSelos] = useState<Selo[]>(() => {
@@ -59,7 +66,8 @@ export default function App() {
 
   const [orders, setOrders] = useState<Order[]>(() => {
     const cached = localStorage.getItem("cc_orders");
-    return cached ? JSON.parse(cached) : INITIAL_ORDERS;
+    const raw: Order[] = cached ? JSON.parse(cached) : INITIAL_ORDERS;
+    return raw.filter((o) => o.id !== "ord_201" && o.producerId !== "producer_manoel" && o.producerId !== "producer_maria" && o.producerId !== "user_vivian");
   });
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
@@ -69,7 +77,8 @@ export default function App() {
 
   const [reviews, setReviews] = useState<Review[]>(() => {
     const cached = localStorage.getItem("cc_reviews");
-    return cached ? JSON.parse(cached) : INITIAL_REVIEWS;
+    const raw: Review[] = cached ? JSON.parse(cached) : INITIAL_REVIEWS;
+    return raw.filter((r) => r.id !== "rev_1" && r.producerId !== "producer_manoel" && r.producerId !== "producer_maria" && r.producerId !== "user_vivian");
   });
 
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -186,21 +195,32 @@ export default function App() {
           dbReviews = await reviewsService.query();
         }
 
+        // Filter out any loaded database entries that are mock
+        const filteredUsers = (dbUsers || []).map((u) => ({
+          ...u,
+          followedProducerIds: u.followedProducerIds ? u.followedProducerIds.filter((pId) => pId !== "producer_manoel" && pId !== "producer_maria" && pId !== "user_vivian") : [],
+          favoriteProductIds: u.favoriteProductIds ? u.favoriteProductIds.filter((pId) => !pId.startsWith("prod_")) : []
+        }));
+        const filteredProducers = (dbProducers || []).filter((p) => p.id !== "producer_manoel" && p.id !== "producer_maria" && p.id !== "user_vivian");
+        const filteredProducts = (dbProducts || []).filter((p) => !p.id.startsWith("prod_") && p.producerId !== "producer_manoel" && p.producerId !== "producer_maria" && p.producerId !== "user_vivian");
+        const filteredOrders = (dbOrders || []).filter((o) => o.id !== "ord_201" && o.producerId !== "producer_manoel" && o.producerId !== "producer_maria" && o.producerId !== "user_vivian");
+        const filteredReviews = (dbReviews || []).filter((r) => r.id !== "rev_1" && r.producerId !== "producer_manoel" && r.producerId !== "producer_maria" && r.producerId !== "user_vivian");
+
         // Atualizar estados do React
-        if (dbUsers) setUsers(dbUsers);
-        if (dbProducers) setProducers(dbProducers);
-        if (dbProducts) setProducts(dbProducts);
-        if (dbOrders) setOrders(dbOrders);
+        setUsers(filteredUsers);
+        setProducers(filteredProducers);
+        setProducts(filteredProducts);
+        setOrders(filteredOrders);
         if (dbChats) setChatMessages(dbChats);
-        if (dbReviews) setReviews(dbReviews);
+        setReviews(filteredReviews);
 
         // Atualizar referências
-        prevUsersRef.current = dbUsers || [];
-        prevProducersRef.current = dbProducers || [];
-        prevProductsRef.current = dbProducts || [];
-        prevOrdersRef.current = dbOrders || [];
+        prevUsersRef.current = filteredUsers;
+        prevProducersRef.current = dbProducers || []; // Leave raw to trigger the automatic deletion of omitted items via sync effects
+        prevProductsRef.current = dbProducts || []; // Leave raw to trigger the automatic deletion of omitted items via sync effects
+        prevOrdersRef.current = dbOrders || []; // Leave raw to trigger the automatic deletion of omitted items via sync effects
         prevChatsRef.current = dbChats || [];
-        prevReviewsRef.current = dbReviews || [];
+        prevReviewsRef.current = dbReviews || []; // Leave raw to trigger the automatic deletion of omitted items via sync effects
 
       } catch (err) {
         console.error("Erro durante a sincronização inicial do Supabase:", err);
