@@ -37,7 +37,7 @@ export default function App() {
     const raw = cached ? JSON.parse(cached) : INITIAL_USERS;
     return raw.map((u: User) => ({
       ...u,
-      followedProducerIds: u.followedProducerIds ? u.followedProducerIds.filter((pId) => pId !== "producer_manoel" && pId !== "producer_maria" && pId !== "user_vivian") : [],
+      followedProducerIds: u.followedProducerIds ? u.followedProducerIds.filter((pId) => pId !== "producer_manoel" && pId !== "producer_maria") : [],
       favoriteProductIds: u.favoriteProductIds ? u.favoriteProductIds.filter((pId) => !pId.startsWith("prod_")) : []
     }));
   });
@@ -45,13 +45,13 @@ export default function App() {
   const [producers, setProducers] = useState<Producer[]>(() => {
     const cached = localStorage.getItem("cc_producers");
     const raw: Producer[] = cached ? JSON.parse(cached) : INITIAL_PRODUCERS;
-    return raw.filter((p) => p.id !== "producer_manoel" && p.id !== "producer_maria" && p.id !== "user_vivian");
+    return raw.filter((p) => p.id !== "producer_manoel" && p.id !== "producer_maria");
   });
 
   const [products, setProducts] = useState<Product[]>(() => {
     const cached = localStorage.getItem("cc_products");
     const raw: Product[] = cached ? JSON.parse(cached) : INITIAL_PRODUCTS;
-    return raw.filter((p) => !p.id.startsWith("prod_") && p.producerId !== "producer_manoel" && p.producerId !== "producer_maria" && p.producerId !== "user_vivian");
+    return raw.filter((p) => !p.id.startsWith("prod_") && p.producerId !== "producer_manoel" && p.producerId !== "producer_maria");
   });
 
   const [selos, setSelos] = useState<Selo[]>(() => {
@@ -67,7 +67,7 @@ export default function App() {
   const [orders, setOrders] = useState<Order[]>(() => {
     const cached = localStorage.getItem("cc_orders");
     const raw: Order[] = cached ? JSON.parse(cached) : INITIAL_ORDERS;
-    return raw.filter((o) => o.id !== "ord_201" && o.producerId !== "producer_manoel" && o.producerId !== "producer_maria" && o.producerId !== "user_vivian");
+    return raw.filter((o) => o.id !== "ord_201" && o.producerId !== "producer_manoel" && o.producerId !== "producer_maria");
   });
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
@@ -78,7 +78,7 @@ export default function App() {
   const [reviews, setReviews] = useState<Review[]>(() => {
     const cached = localStorage.getItem("cc_reviews");
     const raw: Review[] = cached ? JSON.parse(cached) : INITIAL_REVIEWS;
-    return raw.filter((r) => r.id !== "rev_1" && r.producerId !== "producer_manoel" && r.producerId !== "producer_maria" && r.producerId !== "user_vivian");
+    return raw.filter((r) => r.id !== "rev_1" && r.producerId !== "producer_manoel" && r.producerId !== "producer_maria");
   });
 
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -145,6 +145,57 @@ export default function App() {
   const prevChatsRef = useRef<ChatMessage[]>([]);
   const prevReviewsRef = useRef<Review[]>([]);
 
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleManualSync = async () => {
+    if (!isSupabaseConfigured) {
+      alert("Aviso: Supabase não detectado nas variáveis de ambiente. Sincronização em nuvem inativa, usando LocalStorage.");
+      return;
+    }
+    setIsSyncing(true);
+    try {
+      console.log("Iniciando sincronização manual com o Supabase...");
+
+      let dbUsers = await usersService.query();
+      let dbProducers = await producersService.query();
+      let dbProducts = await productsService.query();
+      let dbOrders = await ordersService.query();
+      let dbChats = await chatsService.query();
+      let dbReviews = await reviewsService.query();
+
+      const filteredUsers = (dbUsers || []).map((u) => ({
+        ...u,
+        followedProducerIds: u.followedProducerIds ? u.followedProducerIds.filter((pId) => pId !== "producer_manoel" && pId !== "producer_maria") : [],
+        favoriteProductIds: u.favoriteProductIds ? u.favoriteProductIds.filter((pId) => !pId.startsWith("prod_")) : []
+      }));
+      const filteredProducers = (dbProducers || []).filter((p) => p.id !== "producer_manoel" && p.id !== "producer_maria");
+      const filteredProducts = (dbProducts || []).filter((p) => !p.id.startsWith("prod_") && p.producerId !== "producer_manoel" && p.producerId !== "producer_maria");
+      const filteredOrders = (dbOrders || []).filter((o) => o.id !== "ord_201" && o.producerId !== "producer_manoel" && o.producerId !== "producer_maria");
+      const filteredReviews = (dbReviews || []).filter((r) => r.id !== "rev_1" && r.producerId !== "producer_manoel" && r.producerId !== "producer_maria");
+
+      setUsers(filteredUsers);
+      setProducers(filteredProducers);
+      setProducts(filteredProducts);
+      setOrders(filteredOrders);
+      if (dbChats) setChatMessages(dbChats);
+      setReviews(filteredReviews);
+
+      prevUsersRef.current = filteredUsers;
+      prevProducersRef.current = dbProducers || [];
+      prevProductsRef.current = dbProducts || [];
+      prevOrdersRef.current = dbOrders || [];
+      prevChatsRef.current = dbChats || [];
+      prevReviewsRef.current = dbReviews || [];
+
+      alert("Sincronização concluída! Dados atualizados com as últimas informações em tempo real.");
+    } catch (err) {
+      console.error("Erro na sincronização manual:", err);
+      alert("Erro ao receber novas atualizações. Por favor, tente novamente.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   // 1. CARREGAR DADOS DO SUPABASE NO STARTUP (SE CONFIGURADO)
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -198,13 +249,13 @@ export default function App() {
         // Filter out any loaded database entries that are mock
         const filteredUsers = (dbUsers || []).map((u) => ({
           ...u,
-          followedProducerIds: u.followedProducerIds ? u.followedProducerIds.filter((pId) => pId !== "producer_manoel" && pId !== "producer_maria" && pId !== "user_vivian") : [],
+          followedProducerIds: u.followedProducerIds ? u.followedProducerIds.filter((pId) => pId !== "producer_manoel" && pId !== "producer_maria") : [],
           favoriteProductIds: u.favoriteProductIds ? u.favoriteProductIds.filter((pId) => !pId.startsWith("prod_")) : []
         }));
-        const filteredProducers = (dbProducers || []).filter((p) => p.id !== "producer_manoel" && p.id !== "producer_maria" && p.id !== "user_vivian");
-        const filteredProducts = (dbProducts || []).filter((p) => !p.id.startsWith("prod_") && p.producerId !== "producer_manoel" && p.producerId !== "producer_maria" && p.producerId !== "user_vivian");
-        const filteredOrders = (dbOrders || []).filter((o) => o.id !== "ord_201" && o.producerId !== "producer_manoel" && o.producerId !== "producer_maria" && o.producerId !== "user_vivian");
-        const filteredReviews = (dbReviews || []).filter((r) => r.id !== "rev_1" && r.producerId !== "producer_manoel" && r.producerId !== "producer_maria" && r.producerId !== "user_vivian");
+        const filteredProducers = (dbProducers || []).filter((p) => p.id !== "producer_manoel" && p.id !== "producer_maria");
+        const filteredProducts = (dbProducts || []).filter((p) => !p.id.startsWith("prod_") && p.producerId !== "producer_manoel" && p.producerId !== "producer_maria");
+        const filteredOrders = (dbOrders || []).filter((o) => o.id !== "ord_201" && o.producerId !== "producer_manoel" && o.producerId !== "producer_maria");
+        const filteredReviews = (dbReviews || []).filter((r) => r.id !== "rev_1" && r.producerId !== "producer_manoel" && r.producerId !== "producer_maria");
 
         // Atualizar estados do React
         setUsers(filteredUsers);
@@ -585,23 +636,44 @@ export default function App() {
             </h3>
           </div>
           
-          {/* Custom Stylized Select Dropdown (Lista Suspensa) for simplified profile access */}
-          <div className="relative flex items-center bg-white shadow-sm border border-stone-300 px-3 py-2 rounded-2xl w-full sm:w-auto min-w-[280px]">
-            <span className="text-[11px] font-bold text-stone-500 mr-2 uppercase shrink-0 font-mono">Ir para:</span>
-            <select
-              value={activeRole}
-              onChange={(e) => setActiveRole(e.target.value as "client" | "producer" | "admin")}
-              className="bg-transparent text-stone-850 text-xs sm:text-sm font-bold w-full outline-none cursor-pointer pr-6 text-ellipsis overflow-hidden"
-              style={{ WebkitAppearance: 'none', appearance: 'none' }}
-            >
-              <option value="client" className="text-stone-850 font-bold">Consumidor</option>
-              <option value="producer" className="text-stone-850 font-bold">Produtor ({activeProducer?.propertyName || "Criar Lojinha"})</option>
-              {isVivian && (
-                <option value="admin" className="text-stone-850 font-bold">Administrador ADM</option>
-              )}
-            </select>
-            <div className="absolute right-3 pointer-events-none text-stone-500">
-              <span className="text-xs">▼</span>
+          {/* Custom Stylized Select Dropdown (Lista Suspensa) for simplified profile access and Cloud Sync */}
+          <div className="flex flex-row items-center gap-2 w-full sm:w-auto">
+            {isSupabaseConfigured && (
+              <button
+                onClick={handleManualSync}
+                disabled={isSyncing}
+                title="Sincronizar com o Banco de Dados em Nuvem"
+                className={`flex items-center gap-1.5 px-3.5 py-2 border rounded-2xl text-xs font-bold shadow-sm transition-all cursor-pointer grow sm:grow-0 justify-center h-[38px] ${
+                  isSyncing
+                    ? "bg-stone-100 text-stone-400 border-stone-200"
+                    : "bg-[#2A6F2E]/10 hover:bg-[#2A6F2E]/20 text-[#2A6F2E] border-[#2A6F2E]/20"
+                }`}
+              >
+                <DynamicIcon
+                  name="RefreshCw"
+                  className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`}
+                />
+                <span>{isSyncing ? "Sincronizando..." : "Sincronizar"}</span>
+              </button>
+            )}
+
+            <div className="relative flex items-center bg-white shadow-sm border border-stone-300 px-3 py-2 rounded-2xl w-full sm:w-auto min-w-[220px] h-[38px]">
+              <span className="text-[11px] font-bold text-stone-500 mr-2 uppercase shrink-0 font-mono">Ir para:</span>
+              <select
+                value={activeRole}
+                onChange={(e) => setActiveRole(e.target.value as "client" | "producer" | "admin")}
+                className="bg-transparent text-stone-850 text-xs sm:text-sm font-bold w-full outline-none cursor-pointer pr-6 text-ellipsis overflow-hidden"
+                style={{ WebkitAppearance: 'none', appearance: 'none' }}
+              >
+                <option value="client" className="text-stone-850 font-bold">Consumidor</option>
+                <option value="producer" className="text-stone-850 font-bold">Produtor ({activeProducer?.propertyName || "Criar Lojinha"})</option>
+                {isVivian && (
+                  <option value="admin" className="text-stone-850 font-bold">Administrador ADM</option>
+                )}
+              </select>
+              <div className="absolute right-3 pointer-events-none text-stone-500">
+                <span className="text-xs">▼</span>
+              </div>
             </div>
           </div>
         </div>
