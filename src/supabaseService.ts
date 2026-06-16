@@ -22,6 +22,7 @@ function mapUserToDB(user: User) {
     avatar_url: user.avatarUrl || null,
     followed_producer_ids: user.followedProducerIds, // Salvo como JSONB
     favorite_product_ids: user.favoriteProductIds, // Salvo como JSONB
+    password: user.password || null,
   };
 }
 
@@ -41,6 +42,7 @@ function mapUserFromDB(dbUser: any): User {
     avatarUrl: dbUser.avatar_url || undefined,
     followedProducerIds: typeof dbUser.followed_producer_ids === "string" ? JSON.parse(dbUser.followed_producer_ids) : (dbUser.followed_producer_ids || []),
     favoriteProductIds: typeof dbUser.favorite_product_ids === "string" ? JSON.parse(dbUser.favorite_product_ids) : (dbUser.favorite_product_ids || []),
+    password: dbUser.password || "",
   };
 }
 
@@ -67,6 +69,7 @@ function mapProducerToDB(producer: Producer) {
     selo_ids: producer.seloIds, // Salvo como JSONB
     production_types: producer.productionTypes, // Salvo como JSONB
     is_suspended: producer.isSuspended,
+    local_fair_description: producer.localFairDescription || null,
   };
 }
 
@@ -92,6 +95,7 @@ function mapProducerFromDB(dbProd: any): Producer {
     seloIds: typeof dbProd.selo_ids === "string" ? JSON.parse(dbProd.selo_ids) : (dbProd.selo_ids || []),
     productionTypes: typeof dbProd.production_types === "string" ? JSON.parse(dbProd.production_types) : (dbProd.production_types || []),
     isSuspended: dbProd.is_suspended,
+    localFairDescription: dbProd.local_fair_description || "",
   };
 }
 

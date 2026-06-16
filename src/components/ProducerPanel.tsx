@@ -66,6 +66,7 @@ export default function ProducerPanel({
     deliveryRadiusKm: producer.deliveryRadiusKm,
     deliveryFeeFee: producer.deliveryFeeFee,
     productionTypes: producer.productionTypes || ["padrao"],
+    localFairDescription: producer.localFairDescription || "",
   });
 
   // Chat window state
@@ -242,6 +243,7 @@ export default function ProducerPanel({
       deliveryFeeFee: settingsForm.deliveryFeeFee,
       productionTypes: pTypes,
       seloIds: newSeloIds,
+      localFairDescription: settingsForm.localFairDescription,
     });
     alert("Configurações da loja salvas com sucesso!");
   };
@@ -985,6 +987,17 @@ export default function ProducerPanel({
                       className="w-full p-2.5 bg-white border border-stone-200 rounded-xl text-sm focus:outline-emerald-600"
                       value={settingsForm.description}
                       onChange={(e) => setSettingsForm({ ...settingsForm, description: e.target.value })}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-stone-600 font-medium block mb-1">Participação em Feiras Locais / Regionais da Cidade (Campo Longo)</label>
+                    <textarea
+                      rows={3}
+                      placeholder="Ex: Marcamos presença aos sábados na Feirinha Agroecológica do Centro de Queimados."
+                      className="w-full p-2.5 bg-white border border-stone-200 rounded-xl text-sm focus:outline-emerald-600"
+                      value={settingsForm.localFairDescription}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, localFairDescription: e.target.value })}
                     />
                   </div>
 

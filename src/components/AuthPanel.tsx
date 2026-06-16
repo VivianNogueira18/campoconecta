@@ -15,6 +15,10 @@ interface AuthPanelProps {
 
 export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps) {
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [forgotInput, setForgotInput] = useState("");
+  const [sentEmailData, setSentEmailData] = useState<{ to: string; name: string; pass: string } | null>(null);
+
   const [loginCpf, setLoginCpf] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
@@ -29,7 +33,7 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
   const [userRole, setUserRole] = useState<"client" | "producer" | "both">("client");
 
   // Address Fields
-  const [addrLabel, setAddrLabel] = useState("Principal");
+  const [addrLabel, setAddrLabel] = useState("Residencial");
   const [street, setStreet] = useState("");
   const [number, setNumber] = useState("");
   const [neighborhood, setNeighborhood] = useState("");
@@ -39,6 +43,7 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
 
   // Producer Specific Fields
   const [propertyName, setPropertyName] = useState("");
+  const [propertyAddress, setPropertyAddress] = useState(""); // Endereço separado da propriedade
   const [description, setDescription] = useState("");
   const [deliveryOption, setDeliveryOption] = useState<"both" | "delivery" | "pickup">("both");
   const [deliveryFee, setDeliveryFee] = useState("5.00");
@@ -86,14 +91,22 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
       return;
     }
 
-    // Since users is empty at first, we can allow logging in as the Admin (Viviane Nogueira)
-    // with CPF "123.456.789-00" and password "admin"
     const cleanedLoginCpf = loginCpf.trim();
 
     // Check if the administrator credentials (Vivian dos Santos Nogueira) are matched
-    if (cleanedLoginCpf === "141.730.087-67" || cleanedLoginCpf.replace(/\D/g, "") === "14173008767") {
+    const isVivianCpf = cleanedLoginCpf === "141.730.087-67" || cleanedLoginCpf.replace(/\D/g, "") === "14173008767";
+    const isVivianEmail = cleanedLoginCpf.toLowerCase() === "vivian.nogueira18@gmail.com";
+
+    if (isVivianCpf || isVivianEmail) {
       // Find or dynamically bootstrap Vivian if she doesn't exist yet
-      let adminUser = users.find(u => u.cpf === "141.730.087-67" || u.cpf.replace(/\D/g, "") === "14173008767");
+      let adminUser = users.find(u => u.cpf === "141.730.087-67" || u.cpf.replace(/\D/g, "") === "14173008767" || u.email.toLowerCase() === "vivian.nogueira18@gmail.com");
+      
+      const adminPassword = adminUser?.password || "admin";
+      if (loginPassword !== adminPassword) {
+        setErrorMsg("Senha incorreta para a conta de administração.");
+        return;
+      }
+
       if (!adminUser) {
         adminUser = {
           id: "user_vivian",
@@ -106,6 +119,7 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
           isClient: true,
           isProducer: true,
           selectedAddressId: "addr_vivian",
+          password: "admin",
           addresses: [
             {
               id: "addr_vivian",
@@ -123,6 +137,9 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
           followedProducerIds: [],
           favoriteProductIds: []
         };
+      } else {
+        // Automatically FORCE recovery and unblocking of admin credentials when logging in with correct admin password
+        adminUser.isActive = true;
       }
       onLogin(adminUser);
       return;
@@ -130,14 +147,73 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
 
     // For any registered users
     const matchedUser = users.find(
-      (u) => u.cpf === cleanedLoginCpf || u.email.toLowerCase() === cleanedLoginCpf.toLowerCase()
+      (u) => u.cpf === cleanedLoginCpf || u.email.toLowerCase() === cleanedLoginCpf.toLowerCase() || u.phone.replace(/\D/g, "") === cleanedLoginCpf.replace(/\D/g, "")
     );
 
     if (matchedUser) {
-      // In a prototype design, we accept any password but let's compare simple loginPassword
+      if (!matchedUser.isActive) {
+        setErrorMsg("Esta conta foi suspensa ou desativada pela administração.");
+         return;
+      }
+      const expectedPassword = matchedUser.password || "123456";
+      if (loginPassword !== expectedPassword) {
+        setErrorMsg("Senha incorreta. Por favor, tente novamente.");
+        return;
+      }
       onLogin(matchedUser);
     } else {
       setErrorMsg("Usuário não encontrado com estes dados ou CPF inválido. Se você for novo por aqui, clique em cadastrar-se!");
+    }
+  };
+
+  const handleForgotSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg("");
+    setSentEmailData(null);
+
+    if (!forgotInput) {
+      setErrorMsg("Por favor, informe seu CPF ou E-mail cadastrado.");
+      return;
+    }
+
+    const cleanedInput = forgotInput.trim().replace(/\D/g, "");
+    const emailInput = forgotInput.trim().toLowerCase();
+
+    // Search for user
+    let foundUser = users.find(u => 
+      u.email.toLowerCase() === emailInput || 
+      u.cpf.replace(/\D/g, "") === cleanedInput
+    );
+
+    if (!foundUser && (emailInput === "vivian.nogueira18@gmail.com" || cleanedInput === "14173008767")) {
+      foundUser = {
+        id: "user_vivian",
+        name: "Vivian dos Santos Nogueira",
+        cpf: "141.730.087-67",
+        birthDate: "1994-08-18",
+        email: "vivian.nogueira18@gmail.com",
+        phone: "(21) 98888-8888",
+        isActive: true,
+        isClient: true,
+        isProducer: true,
+        selectedAddressId: "addr_vivian",
+        password: "admin",
+        addresses: [],
+        followedProducerIds: [],
+        favoriteProductIds: []
+      };
+    }
+
+    if (foundUser) {
+      const userPassword = foundUser.password || (foundUser.id === "user_vivian" ? "admin" : "123456");
+      setSentEmailData({
+        to: foundUser.email,
+        name: foundUser.name,
+        pass: userPassword
+      });
+      setForgotInput("");
+    } else {
+      setErrorMsg("Nenhuma conta encontrada com este CPF ou E-mail.");
     }
   };
 
@@ -151,7 +227,7 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
     }
 
     if (!street || !number || !neighborhood || !zipCode) {
-      setErrorMsg("O endereço completo é necessário para calcular as taxas de entrega.");
+      setErrorMsg("O endereço residencial completo é necessário para o seu cadastro pessoal.");
       return;
     }
 
@@ -176,8 +252,8 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
       city,
       state,
       zipCode,
-      latitude: -22.8600 + (Math.random() - 0.5) * 0.04, // random realistic Hortolândia offsets
-      longitude: -47.2200 + (Math.random() - 0.5) * 0.04,
+      latitude: -22.7160 + (Math.random() - 0.5) * 0.04, // random realistic offsets around Queimados
+      longitude: -43.5570 + (Math.random() - 0.5) * 0.04,
     };
 
     const newUser: User = {
@@ -194,6 +270,7 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
       addresses: [addressObj],
       followedProducerIds: [],
       favoriteProductIds: [],
+      password: password,
     };
 
     // If producer, build producer details
@@ -203,10 +280,14 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
         setErrorMsg("Por favor, informe o nome comercial da sua propriedade rústica.");
         return;
       }
+      if (!propertyAddress) {
+        setErrorMsg("Por favor, informe o endereço de localização geográfica da sua propriedade.");
+        return;
+      }
       newProducer = {
         id: newUserId,
         propertyName: propertyName,
-        address: `${street}, ${number} - ${neighborhood}, ${city} - ${state}`,
+        address: propertyAddress,
         latitude: addressObj.latitude,
         longitude: addressObj.longitude,
         logoUrl: "https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?auto=format&fit=crop&q=80&w=150",
@@ -216,14 +297,15 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
         whatsapp: phone.replace(/\D/g, ""),
         instagram: name.toLowerCase().replace(/\s/g, "_") + "_org",
         showPhonePublicly: true,
-        deliveryOption: deliveryOption,
-        deliveryRadiusKm: Number(deliveryRadius) || 12,
-        deliveryFeeFee: Number(deliveryFee) || 0,
+        deliveryOption: "both",
+        deliveryRadiusKm: 12,
+        deliveryFeeFee: 5,
         ratingAverage: 5.0,
         ratingCount: 0,
-        seloIds: ["selo_1", "selo_4"],
+        seloIds: [], // Start empty, can edit inside
         productionTypes: ["padrao"],
         isSuspended: false,
+        localFairDescription: "", // Start empty, can edit inside
       };
     }
 
@@ -231,7 +313,7 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
   };
 
   const injectAdminCredentials = () => {
-    setLoginCpf("123.456.789-00");
+    setLoginCpf("141.730.087-67");
     setLoginPassword("admin");
   };
 
@@ -280,17 +362,84 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
         </div>
 
         {/* Action Form Side */}
-        <div className="p-8 md:p-14 md:w-7/12 flex flex-col justify-center bg-[#FDFDFB]">
+        <div id="auth-action-side" className="p-8 md:p-14 md:w-7/12 flex flex-col justify-center bg-[#FDFDFB]">
           {errorMsg && (
-            <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-2xl text-xs flex items-start gap-2 mb-6 animate-pulse">
+            <div id="auth-error-banner" className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-2xl text-xs flex items-start gap-2 mb-6 animate-pulse">
               <DynamicIcon name="AlertTriangle" className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
               <span>{errorMsg}</span>
             </div>
           )}
 
-          {!isRegistering ? (
+          {isForgotPassword ? (
+            /* FORGOT PASSWORD VIEW */
+            <div id="forgot-password-view" className="space-y-6">
+              <div>
+                <span className="text-[10px] uppercase font-bold tracking-widest text-[#D4A373] font-mono">Recuperação instantânea</span>
+                <h3 className="text-3xl font-serif font-bold text-[#5A5A40] mt-1">Esqueceu sua senha?</h3>
+                <p className="text-xs text-stone-500 mt-2">
+                  Não se preocupe! Informe seu CPF ou seu E-mail cadastrado e nós enviaremos suas credenciais de acesso agora mesmo.
+                </p>
+              </div>
+
+              {sentEmailData ? (
+                <div id="forgot-password-success-box" className="bg-emerald-50 border border-emerald-100 p-5 rounded-2xl space-y-4 text-xs text-stone-700 animate-fade-in shadow-sm">
+                  <div className="flex items-center gap-2 text-emerald-700 font-bold">
+                    <DynamicIcon name="CheckCircle" className="w-5 h-5 text-emerald-600" />
+                    <span>E-mail de Recuperação Enviado!</span>
+                  </div>
+                  <p className="leading-relaxed">
+                    Olá <strong className="text-stone-900">{sentEmailData.name}</strong>, simulamos com sucesso o envio de um e-mail para <strong className="text-stone-900">{sentEmailData.to}</strong>.
+                  </p>
+                  <div className="bg-white p-3 rounded-xl border border-emerald-100 font-mono space-y-1">
+                    <p className="text-[10px] text-stone-400">Assunto: Sua senha de acesso no CampoConecta</p>
+                    <p className="text-stone-800 font-bold">A sua senha cadastrada é: <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-sm">{sentEmailData.pass}</span></p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setIsForgotPassword(false);
+                      setSentEmailData(null);
+                    }}
+                    className="w-full bg-[#5A5A40] text-white py-2 rounded-lg font-bold text-xs uppercase tracking-wider cursor-pointer hover:bg-[#4A4A35]"
+                  >
+                    Voltar para o Login
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleForgotSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5 font-mono">
+                      CPF ou E-mail Cadastrado
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ex: 000.000.000-00 ou email@exemplo.com"
+                      value={forgotInput}
+                      onChange={(e) => setForgotInput(e.target.value)}
+                      className="w-full bg-[#F2F2EB]/50 border border-[#E6E6DF] focus:border-[#5A5A40] focus:ring-1 focus:ring-[#5A5A40] rounded-xl px-4 py-3 text-sm transition-all text-stone-850 outline-none"
+                    />
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsForgotPassword(false)}
+                      className="w-1/2 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold py-3.5 px-4 rounded-xl text-xs uppercase tracking-widest cursor-pointer transition-all"
+                    >
+                      Voltar
+                    </button>
+                    <button
+                      type="submit"
+                      className="w-1/2 bg-[#5A5A40] hover:bg-[#4A4A35] text-white font-bold py-3.5 px-4 rounded-xl text-xs uppercase tracking-widest cursor-pointer shadow-md transition-all"
+                    >
+                      Recuperar Senha
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          ) : !isRegistering ? (
             /* LOGIN VIEW */
-            <div className="space-y-6">
+            <div id="login-view" className="space-y-6">
               <div>
                 <span className="text-[10px] uppercase font-bold tracking-widest text-[#A3A380] font-mono">Conectando quem produz a quem valoriza</span>
                 <h3 className="text-3xl font-serif font-bold text-[#5A5A40] mt-1">Faça seu login</h3>
@@ -302,14 +451,14 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
               <form onSubmit={handleLoginSubmit} className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5 font-mono">
-                    CPF ou Número Cadastrado
+                    CPF ou E-mail Cadastrado
                   </label>
                   <div className="relative">
                     <input
                       type="text"
-                      placeholder="000.000.000-00"
+                      placeholder="000.000.000-00 ou seu@email.com"
                       value={loginCpf}
-                      onChange={handleLoginCpfChange}
+                      onChange={(e) => setLoginCpf(e.target.value)}
                       className="w-full bg-[#F2F2EB]/50 border border-[#E6E6DF] focus:border-[#5A5A40] focus:ring-1 focus:ring-[#5A5A40] rounded-xl px-4 py-3 text-sm transition-all text-stone-850 outline-none"
                     />
                     <div className="absolute right-3 top-3 text-[#A3A380]">
@@ -319,9 +468,18 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5 font-mono">
-                    Senha de Acesso
-                  </label>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 font-mono">
+                      Senha de Acesso
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setIsForgotPassword(true)}
+                      className="text-xs text-[#D4A373] hover:underline font-bold cursor-pointer"
+                    >
+                      Esqueci minha senha
+                    </button>
+                  </div>
                   <div className="relative">
                     <input
                       type="password"
@@ -336,12 +494,22 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
                   </div>
                 </div>
 
-                <button
-                  type="submit"
-                  className="w-full bg-[#5A5A40] hover:bg-[#4A4A35] text-white font-bold py-3.5 px-6 rounded-xl text-xs uppercase tracking-widest cursor-pointer shadow-md transition-all mt-6"
-                >
-                  Confirmar e Entrar
-                </button>
+                <div className="flex gap-2.5 pt-2">
+                  <button
+                    type="submit"
+                    className="flex-1 bg-[#5A5A40] hover:bg-[#4A4A35] text-white font-bold py-3.5 px-6 rounded-xl text-xs uppercase tracking-widest cursor-pointer shadow-md transition-all"
+                  >
+                    Confirmar e Entrar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={injectAdminCredentials}
+                    title="Injetar Acesso Administrativo Vivian"
+                    className="bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 px-4 rounded-xl flex items-center justify-center cursor-pointer transition-all"
+                  >
+                    <DynamicIcon name="Key" className="w-4 h-4" />
+                  </button>
+                </div>
               </form>
 
               <div className="pt-4 border-t border-[#E6E6DF] text-center text-xs text-stone-500">
@@ -356,7 +524,7 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
             </div>
           ) : (
             /* REGISTRATION VIEW */
-            <div className="space-y-6 max-h-[80vh] overflow-y-auto pr-1">
+            <div id="register-view" className="space-y-6 max-h-[80vh] overflow-y-auto pr-1">
               <div>
                 <span className="text-[10px] uppercase font-bold tracking-widest text-[#A3A380] font-mono">Una-se à nossa iniciativa</span>
                 <h3 className="text-3xl font-serif font-bold text-[#5A5A40] mt-1">Crie sua Conta</h3>
@@ -394,12 +562,12 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
                   </div>
                 </div>
 
-                {/* Personal Information */}
+                {/* Personal Information & Home Address */}
                 <div className="bg-[#F2F2EB]/30 p-4 rounded-3xl border border-[#E6E6DF] space-y-3">
-                  <h4 className="text-xs font-bold text-[#5A5A40] font-mono uppercase tracking-wider">Passo 1: Dados Pessoais</h4>
+                  <h4 className="text-xs font-bold text-[#5A5A40] font-mono uppercase tracking-wider">Passo 1: Seus Dados Pessoais</h4>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
+                    <div className="sm:col-span-2">
                       <label className="block text-[10px] font-bold text-stone-600 mb-1 uppercase">Nome Completo</label>
                       <input
                         type="text"
@@ -451,19 +619,19 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
                       <input
                         type="text"
                         required
-                        placeholder="(19) 99999-9999"
+                        placeholder="(21) 99999-9999"
                         value={phone}
                         onChange={handlePhoneChange}
                         className="w-full bg-white border border-[#E6E6DF] focus:border-[#5A5A40] rounded-lg px-3 py-2 text-xs outline-none font-mono"
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-[10px] font-bold text-stone-600 mb-1 uppercase">Senha de Acesso</label>
+                    <div className="sm:col-span-2">
+                      <label className="block text-[10px] font-bold text-stone-600 mb-1 uppercase">Crie sua Senha de Acesso</label>
                       <input
                         type="password"
                         required
-                        placeholder="Mínimo 4 caracteres"
+                        placeholder="Insira sua senha residencial segura"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         className="w-full bg-white border border-[#E6E6DF] focus:border-[#5A5A40] rounded-lg px-3 py-2 text-xs outline-none"
@@ -472,16 +640,16 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
                   </div>
                 </div>
 
-                {/* Address Information */}
+                {/* Residential Address Information */}
                 <div className="bg-[#F2F2EB]/30 p-4 rounded-3xl border border-[#E6E6DF] space-y-3">
-                  <h4 className="text-xs font-bold text-[#5A5A40] font-mono uppercase tracking-wider">Passo 2: Localização Física</h4>
+                  <h4 className="text-xs font-bold text-[#5A5A40] font-mono uppercase tracking-wider">Passo 2: Seu Endereço Residencial</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="sm:col-span-2">
-                      <label className="block text-[10px] font-bold text-stone-600 mb-1 uppercase">Rua / Estrada</label>
+                      <label className="block text-[10px] font-bold text-stone-600 mb-1 uppercase">Rua / Logradouro Residencial</label>
                       <input
                         type="text"
                         required
-                        placeholder="Rua das Garças ou Estrada do Sol"
+                        placeholder="Rua, Avenida, Estrada..."
                         value={street}
                         onChange={(e) => setStreet(e.target.value)}
                         className="w-full bg-white border border-[#E6E6DF] focus:border-[#5A5A40] rounded-lg px-3 py-2 text-xs outline-none"
@@ -489,7 +657,7 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-bold text-stone-600 mb-1 uppercase">Número / Km</label>
+                      <label className="block text-[10px] font-bold text-stone-600 mb-1 uppercase">Número / Apto</label>
                       <input
                         type="text"
                         required
@@ -501,7 +669,7 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-bold text-stone-600 mb-1 uppercase">Bairro / Região</label>
+                      <label className="block text-[10px] font-bold text-stone-600 mb-1 uppercase">Bairro</label>
                       <input
                         type="text"
                         required
@@ -519,7 +687,7 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
                         required
                         value={city}
                         onChange={(e) => setCity(e.target.value)}
-                        className="w-full bg-white border border-[#E6E6DF] focus:border-[#5A5A40] rounded-lg px-3 py-2 text-xs outline-none"
+                        className="w-full bg-white border border-[#E6E6DF] rounded-lg px-3 py-2 text-xs outline-none"
                       />
                     </div>
 
@@ -528,7 +696,7 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
                       <input
                         type="text"
                         required
-                        placeholder="13184-000"
+                        placeholder="26300-000"
                         value={zipCode}
                         onChange={(e) => setZipCode(e.target.value)}
                         className="w-full bg-white border border-[#E6E6DF] focus:border-[#5A5A40] rounded-lg px-3 py-2 text-xs outline-none font-mono"
@@ -540,15 +708,15 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
                 {/* Producer-Specific Details Form Block */}
                 {(userRole === "producer" || userRole === "both") && (
                   <div className="bg-[#E9EDC9]/20 p-4 rounded-3xl border border-[#D4A373]/30 space-y-3 animate-fade-in">
-                    <h4 className="text-xs font-bold text-[#5A5A40] font-mono uppercase tracking-wider">Passo 3: Dados de Produtor Rural</h4>
+                    <h4 className="text-xs font-bold text-[#5A5A40] font-mono uppercase tracking-wider">Passo 3: Dados Comerciais do Produtor</h4>
                     
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-[10px] font-bold text-stone-600 mb-1 uppercase">Nome Comercial da Propriedade</label>
+                        <label className="block text-[10px] font-bold text-stone-600 mb-1 uppercase">Nome Comercial da Lojinha / Propriedade</label>
                         <input
                           type="text"
                           required
-                          placeholder="Ex: Sítio Orgânico do Sol rústica"
+                          placeholder="Ex: Sítio Agroecológico da Vivian, Lojinha do Manoel"
                           value={propertyName}
                           onChange={(e) => setPropertyName(e.target.value)}
                           className="w-full bg-white border border-[#E6E6DF] focus:border-[#5A5A40] rounded-lg px-3 py-2 text-xs outline-none"
@@ -556,52 +724,26 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-bold text-stone-600 mb-1 uppercase">Breve Descrição do Cultivo</label>
+                        <label className="block text-[10px] font-bold text-stone-600 mb-1 uppercase">Endereço Comercial / Localização da Propriedade</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Ex: Estrada do Sol, 450 - Zona Rural, Queimados - RJ"
+                          value={propertyAddress}
+                          onChange={(e) => setPropertyAddress(e.target.value)}
+                          className="w-full bg-white border border-[#E6E6DF] focus:border-[#5A5A40] rounded-lg px-3 py-2 text-xs outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-stone-600 mb-1 uppercase">Descrição da Propriedade / Cultivo</label>
                         <textarea
-                          placeholder="Conte aos vizinhos o que você cultiva, técnicas orgânicas ou sua história na terra..."
+                          placeholder="Descreva seu cultivo, história, se produz alimentos agroecológicos, orgânicos ou artesanais..."
                           value={description}
                           onChange={(e) => setDescription(e.target.value)}
                           rows={3}
                           className="w-full bg-white border border-[#E6E6DF] focus:border-[#5A5A40] rounded-lg p-3 text-xs outline-none resize-none"
                         />
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div>
-                          <label className="block text-[10px] font-bold text-stone-600 mb-1 uppercase">Como entrega?</label>
-                          <select
-                            value={deliveryOption}
-                            onChange={(e: any) => setDeliveryOption(e.target.value)}
-                            className="w-full bg-white border border-[#E6E6DF] rounded-lg px-3 py-2 text-xs outline-none"
-                          >
-                            <option value="both">Ambos (Retirada e Entrega)</option>
-                            <option value="delivery">Apenas Enviar por Entrega</option>
-                            <option value="pickup">Apenas Retirada no Local</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] font-bold text-stone-600 mb-1 uppercase">Taxa de Entrega (R$)</label>
-                          <input
-                            type="number"
-                            step="0.50"
-                            placeholder="0.00"
-                            value={deliveryFee}
-                            onChange={(e) => setDeliveryFee(e.target.value)}
-                            className="w-full bg-white border border-[#E6E6DF] focus:border-[#5A5A40] rounded-lg px-3 py-2 text-xs outline-none font-mono"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] font-bold text-stone-600 mb-1 uppercase">Raio Atendido (Km)</label>
-                          <input
-                            type="number"
-                            placeholder="15"
-                            value={deliveryRadius}
-                            onChange={(e) => setDeliveryRadius(e.target.value)}
-                            className="w-full bg-white border border-[#E6E6DF] focus:border-[#5A5A40] rounded-lg px-3 py-2 text-xs outline-none font-mono"
-                          />
-                        </div>
                       </div>
                     </div>
                   </div>
@@ -618,6 +760,7 @@ export default function AuthPanel({ users, onLogin, onRegister }: AuthPanelProps
               <div className="pt-4 border-t border-[#E6E6DF] text-center text-xs text-stone-500">
                 Já possui conta?{" "}
                 <button
+                  type="button"
                   onClick={() => setIsRegistering(false)}
                   className="text-[#D4A373] hover:underline font-bold cursor-pointer"
                 >

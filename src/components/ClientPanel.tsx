@@ -844,6 +844,17 @@ export default function ClientPanel({
                         <p className="flex items-center gap-1.5">
                           <DynamicIcon name="MapPin" className="w-4 h-4 text-emerald-600" /> {grower.address}
                         </p>
+                        {grower.localFairDescription && (
+                          <div className="pt-2.5 border-t border-dashed border-stone-200">
+                            <div className="flex gap-1.5 text-[#a16207]">
+                              <DynamicIcon name="Sparkles" className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                              <div className="text-xs">
+                                <strong className="block text-stone-800">Feirinhas da Região:</strong>
+                                <span className="font-medium text-stone-700">{grower.localFairDescription}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
 

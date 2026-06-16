@@ -552,12 +552,8 @@ export default function App() {
               className="bg-transparent text-stone-850 text-xs sm:text-sm font-bold w-full outline-none cursor-pointer pr-6 text-ellipsis overflow-hidden"
               style={{ WebkitAppearance: 'none', appearance: 'none' }}
             >
-              {currentUser.isClient && (
-                <option value="client" className="text-stone-850 font-bold">Cliente e Consumidor</option>
-              )}
-              {currentUser.isProducer && (
-                <option value="producer" className="text-stone-850 font-bold">Produtor ({activeProducer?.propertyName || "Propriedade"})</option>
-              )}
+              <option value="client" className="text-stone-850 font-bold">Cliente e Consumidor</option>
+              <option value="producer" className="text-stone-850 font-bold">Produtor ({activeProducer?.propertyName || "Criar Lojinha"})</option>
               {isVivian && (
                 <option value="admin" className="text-stone-850 font-bold">Administrador ADM</option>
               )}
@@ -580,7 +576,26 @@ export default function App() {
           </div>
         ) : (
           <div className="min-h-[500px]">
-            {activeRole === "client" && (
+            {activeRole === "client" && !currentUser.isClient && (
+              <div className="bg-white p-8 rounded-[32px] border border-[#E6E6DF] text-center max-w-md mx-auto space-y-4 shadow-sm my-10">
+                <DynamicIcon name="ShoppingBag" className="w-12 h-12 text-[#8E8E7A] mx-auto" />
+                <h3 className="font-serif font-bold text-lg text-[#5A5A40]">Ativar Perfil de Comprador (Cliente)</h3>
+                <p className="text-xs text-[#8E8E7A] leading-relaxed">Você atualmente não possui um perfil de cliente cadastrado neste usuário ou ele foi removido anteriormente.</p>
+                <button
+                  onClick={() => {
+                    setUsers((prev) =>
+                      prev.map((u) => (u.id === currentUser.id ? { ...u, isClient: true } : u))
+                    );
+                    setActiveRole("client");
+                  }}
+                  className="bg-[#5A5A40] hover:bg-[#4A4A35] text-white font-bold py-3 px-6 rounded-xl text-xs cursor-pointer shadow-sm transition-all"
+                >
+                  Criar Conta de Cliente Agora
+                </button>
+              </div>
+            )}
+
+            {activeRole === "client" && currentUser.isClient && (
               <ClientPanel
                 currentUser={currentUser}
                 users={users}
@@ -601,7 +616,7 @@ export default function App() {
               />
             )}
 
-            {activeRole === "producer" && activeProducer && (
+            {activeRole === "producer" && currentUser.isProducer && activeProducer && (
               <ProducerPanel
                 currentUser={currentUser}
                 producer={activeProducer}
@@ -618,23 +633,62 @@ export default function App() {
               />
             )}
 
-            {activeRole === "producer" && !activeProducer && (
-              <div className="bg-white p-8 rounded-[32px] border border-[#E6E6DF] text-center max-w-md mx-auto space-y-4 shadow-sm">
+            {activeRole === "producer" && (!currentUser.isProducer || !activeProducer) && (
+              <div className="bg-white p-8 rounded-[32px] border border-[#E6E6DF] text-center max-w-md mx-auto my-10 space-y-4 shadow-sm">
                 <DynamicIcon name="Store" className="w-12 h-12 text-[#8E8E7A] mx-auto" />
-                <h3 className="font-serif font-bold text-lg text-[#5A5A40]">Ativar Perfil de Produtor</h3>
-                <p className="text-xs text-[#8E8E7A] leading-relaxed">Sua conta atual não possui uma propriedade rural cadastrada para venda.</p>
+                <h3 className="font-serif font-bold text-lg text-[#5A5A40]">Nova Conta de Produtor</h3>
+                <p className="text-xs text-[#8E8E7A] leading-relaxed">Você não possui uma propriedade rural registrada para venda. Cadastre-a preenchendo as informações básicas abaixo para começar:</p>
+                
+                <div className="text-left space-y-3 bg-[#F2F2EB]/40 p-4 rounded-2xl border border-[#E6E6DF]">
+                  <div>
+                    <label className="block text-[10px] font-bold text-stone-600 mb-1 uppercase font-mono">Nome Comercial da Sítio / Lojinha</label>
+                    <input
+                      type="text"
+                      id="new-store-name"
+                      placeholder="Ex: Sítio Agroecológico da Serra"
+                      className="w-full bg-white border border-[#E6E6DF] rounded-lg px-3 py-2 text-xs outline-none focus:border-[#5A5A40]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-stone-600 mb-1 uppercase font-mono">Endereço de Localização da Propriedade</label>
+                    <input
+                      type="text"
+                      id="new-store-address"
+                      placeholder="Ex: Estrada do Sol, KM 5, Queimados - RJ"
+                      className="w-full bg-white border border-[#E6E6DF] rounded-lg px-3 py-2 text-xs outline-none focus:border-[#5A5A40]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-stone-600 mb-1 uppercase font-mono">Breve Descrição do Sítio</label>
+                    <textarea
+                      id="new-store-description"
+                      placeholder="O que você cultiva? Legumes ecológicos, frutas frescas, tradição familiar na terra..."
+                      rows={2}
+                      className="w-full bg-white border border-[#E6E6DF] rounded-lg p-3 text-xs outline-none resize-none focus:border-[#5A5A40]"
+                    />
+                  </div>
+                </div>
+
                 <button
                   onClick={() => {
+                    const nameInput = document.getElementById("new-store-name") as HTMLInputElement;
+                    const addressInput = document.getElementById("new-store-address") as HTMLInputElement;
+                    const descInput = document.getElementById("new-store-description") as HTMLTextAreaElement;
+
+                    const newPropertyName = nameInput?.value || ("Sítio de " + currentUser.name);
+                    const newAddress = addressInput?.value || (currentUser.addresses?.[0] ? `${currentUser.addresses[0].street}, ${currentUser.addresses[0].number}` : "Sede, Queimados");
+                    const newDesc = descInput?.value || "Agroecologia local focada em frescor incomparável e responsabilidade ecológica.";
+
                     const newProducer: Producer = {
                       id: currentUser.id,
-                      propertyName: "Propriedade Ecologica de " + currentUser.name,
-                      address: currentUser.addresses[0].street + ", " + currentUser.addresses[0].number,
-                      latitude: currentUser.addresses[0].latitude,
-                      longitude: currentUser.addresses[0].longitude,
+                      propertyName: newPropertyName,
+                      address: newAddress,
+                      latitude: currentUser.addresses?.[0]?.latitude || -22.7161,
+                      longitude: currentUser.addresses?.[0]?.longitude || -43.5576,
                       logoUrl: "https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?auto=format&fit=crop&q=80&w=150",
                       coverUrl: "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&q=80&w=800",
-                      description: "Agroecologia familiar com amor a terra e orgulho no cultivo.",
-                      openingHours: "Terca a Sabado: 08:00h as 17:00h",
+                      description: newDesc,
+                      openingHours: "Terça a Sábado: 08:00h às 17:00h",
                       whatsapp: currentUser.phone.replace(/\D/g, ""),
                       instagram: currentUser.name.toLowerCase().replace(/\s/g, "_") + "_org",
                       showPhonePublicly: true,
@@ -647,15 +701,19 @@ export default function App() {
                       productionTypes: ["padrao"],
                       isSuspended: false,
                     };
-                    setProducers((prev) => [...prev, newProducer]);
+
+                    setProducers((prev) => {
+                      const clean = prev.filter((p) => p.id !== currentUser.id);
+                      return [...clean, newProducer];
+                    });
                     setUsers((prev) =>
                       prev.map((u) => (u.id === currentUser.id ? { ...u, isProducer: true } : u))
                     );
                     setActiveRole("producer");
                   }}
-                  className="bg-[#5A5A40] hover:bg-[#4A4A35] text-white font-bold py-3 px-6 rounded-xl text-xs cursor-pointer shadow-sm transition-all"
+                  className="w-full bg-[#5A5A40] hover:bg-[#4A4A35] text-white font-bold py-3 px-6 rounded-xl text-xs cursor-pointer shadow-sm transition-all"
                 >
-                  Criar Minha Propriedade Agora
+                  Criar Propriedade Agora e Vender
                 </button>
               </div>
             )}

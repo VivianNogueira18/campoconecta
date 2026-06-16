@@ -31,6 +31,7 @@ export interface User {
   avatarUrl?: string;
   followedProducerIds: string[];
   favoriteProductIds: string[];
+  password?: string;
 }
 
 export interface Producer {
@@ -54,6 +55,7 @@ export interface Producer {
   seloIds: string[]; // Badges custom assigned by admin
   productionTypes: string[]; // e.g. ["padrao", "organica", "agroecologica", "artesanal"]
   isSuspended: boolean;
+  localFairDescription?: string;
 }
 
 export interface Product {

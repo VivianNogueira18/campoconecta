@@ -79,6 +79,7 @@ export const INITIAL_USERS: User[] = [
     isClient: true,
     isProducer: true,
     selectedAddressId: "addr_vivian",
+    password: "admin",
     addresses: [
       {
         id: "addr_vivian",
@@ -107,6 +108,7 @@ export const INITIAL_USERS: User[] = [
     isClient: true,
     isProducer: false,
     selectedAddressId: "addr_jose",
+    password: "123456",
     addresses: [
       {
         id: "addr_jose",
@@ -135,6 +137,7 @@ export const INITIAL_USERS: User[] = [
     isClient: true,
     isProducer: true,
     selectedAddressId: "addr_manoel",
+    password: "123456",
     addresses: [
       {
         id: "addr_manoel",
@@ -163,6 +166,7 @@ export const INITIAL_USERS: User[] = [
     isClient: true,
     isProducer: true,
     selectedAddressId: "addr_maria",
+    password: "123456",
     addresses: [
       {
         id: "addr_maria",
