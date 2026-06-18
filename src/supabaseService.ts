@@ -15,13 +15,12 @@ function mapUserToDB(user: User) {
     email: user.email,
     phone: user.phone,
     is_active: user.isActive,
-    addresses: user.addresses, // Salvo como JSONB
-    selected_address_id: user.selectedAddressId,
+    selected_address_id: user.selectedAddressId || null,
     is_producer: user.isProducer,
     is_client: user.isClient,
     avatar_url: user.avatarUrl || null,
-    followed_producer_ids: user.followedProducerIds, // Salvo como JSONB
-    favorite_product_ids: user.favoriteProductIds, // Salvo como JSONB
+    followed_producer_ids: user.followedProducerIds || [], // Salvo como JSONB
+    favorite_product_ids: user.favoriteProductIds || [], // Salvo como JSONB
     password: user.password || null,
   };
 }
@@ -35,7 +34,7 @@ function mapUserFromDB(dbUser: any): User {
     email: dbUser.email,
     phone: dbUser.phone,
     isActive: dbUser.is_active,
-    addresses: typeof dbUser.addresses === "string" ? JSON.parse(dbUser.addresses) : (dbUser.addresses || []),
+    addresses: [], // populated dynamically from relation table
     selectedAddressId: dbUser.selected_address_id || "",
     isProducer: dbUser.is_producer,
     isClient: dbUser.is_client,
@@ -144,7 +143,6 @@ function mapOrderToDB(order: Order) {
     user_id: order.userId,
     producer_id: order.producerId,
     producer_name: order.producerName,
-    items: order.items, // Salvo como JSONB
     subtotal: order.subtotal,
     delivery_fee: order.deliveryFee,
     total: order.total,
@@ -163,7 +161,7 @@ function mapOrderFromDB(dbOrder: any): Order {
     userId: dbOrder.user_id,
     producerId: dbOrder.producer_id,
     producerName: dbOrder.producer_name,
-    items: typeof dbOrder.items === "string" ? JSON.parse(dbOrder.items) : (dbOrder.items || []),
+    items: [], // populated dynamically from relation table
     subtotal: Number(dbOrder.subtotal),
     deliveryFee: Number(dbOrder.delivery_fee),
     total: Number(dbOrder.total),
@@ -251,7 +249,31 @@ export const usersService = {
       
       const { data, error } = await query.order("name", { ascending: true });
       if (error) throw error;
-      return (data || []).map(mapUserFromDB);
+
+      const usersList = (data || []).map(mapUserFromDB);
+
+      // Fetch matching addresses for all these users
+      const { data: addrData, error: addrError } = await supabase.from("user_addresses").select("*");
+      if (!addrError && addrData) {
+        usersList.forEach(user => {
+          user.addresses = addrData
+            .filter((addr: any) => addr.user_id === user.id)
+            .map((addr: any) => ({
+              id: addr.id,
+              label: addr.label,
+              street: addr.street,
+              number: addr.number,
+              neighborhood: addr.neighborhood,
+              city: addr.city,
+              state: addr.state,
+              zipCode: addr.zip_code,
+              latitude: Number(addr.latitude),
+              longitude: Number(addr.longitude),
+            }));
+        });
+      }
+
+      return usersList;
     } catch (err) {
       console.error("Erro ao buscar usuários do Supabase:", err);
       throw err;
@@ -264,10 +286,43 @@ export const usersService = {
       return user;
     }
     try {
-      const dbObj = mapUserToDB(user);
+      // Step 1: Insert user with selectedAddressId as null initially to satisfy foreign key
+      const dbObj = { ...mapUserToDB(user), selected_address_id: null };
       const { data, error } = await supabase.from("users").insert(dbObj).select().single();
       if (error) throw error;
-      return mapUserFromDB(data);
+
+      // Step 2: Insert addresses if any
+      if (user.addresses && user.addresses.length > 0) {
+        const addrPayloads = user.addresses.map((addr) => ({
+          id: addr.id,
+          user_id: user.id,
+          label: addr.label,
+          street: addr.street,
+          number: addr.number,
+          neighborhood: addr.neighborhood,
+          city: addr.city,
+          state: addr.state,
+          zip_code: addr.zipCode,
+          latitude: addr.latitude,
+          longitude: addr.longitude,
+        }));
+        const { error: addrError } = await supabase.from("user_addresses").insert(addrPayloads);
+        if (addrError) throw addrError;
+      }
+
+      // Step 3: Set actual selected_address_id
+      if (user.selectedAddressId) {
+        const { error: updateError } = await supabase
+          .from("users")
+          .update({ selected_address_id: user.selectedAddressId })
+          .eq("id", user.id);
+        if (updateError) throw updateError;
+      }
+
+      const returnedUser = mapUserFromDB(data);
+      returnedUser.addresses = user.addresses || [];
+      returnedUser.selectedAddressId = user.selectedAddressId;
+      return returnedUser;
     } catch (err) {
       console.error("Erro ao inserir usuário no Supabase:", err);
       throw err;
@@ -286,12 +341,48 @@ export const usersService = {
       if (updates.birthDate !== undefined) dbUpdates.birth_date = updates.birthDate;
       if (updates.avatarUrl !== undefined) dbUpdates.avatar_url = updates.avatarUrl;
       if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
-      if (updates.addresses !== undefined) dbUpdates.addresses = updates.addresses;
-      if (updates.selectedAddressId !== undefined) dbUpdates.selected_address_id = updates.selectedAddressId;
+      if (updates.selectedAddressId !== undefined) dbUpdates.selected_address_id = updates.selectedAddressId || null;
       if (updates.isProducer !== undefined) dbUpdates.is_producer = updates.isProducer;
       if (updates.isClient !== undefined) dbUpdates.is_client = updates.isClient;
       if (updates.followedProducerIds !== undefined) dbUpdates.followed_producer_ids = updates.followedProducerIds;
       if (updates.favoriteProductIds !== undefined) dbUpdates.favorite_product_ids = updates.favoriteProductIds;
+
+      // Handle addresses update
+      if (updates.addresses !== undefined) {
+        // Step 1: Temporarily clear selected_address_id in DB to allow removing old addresses
+        await supabase.from("users").update({ selected_address_id: null }).eq("id", userId);
+
+        // Step 2: Delete old user addresses
+        await supabase.from("user_addresses").delete().eq("user_id", userId);
+
+        // Step 3: Insert new addresses
+        if (updates.addresses.length > 0) {
+          const addrPayloads = updates.addresses.map((addr) => ({
+            id: addr.id,
+            user_id: userId,
+            label: addr.label,
+            street: addr.street,
+            number: addr.number,
+            neighborhood: addr.neighborhood,
+            city: addr.city,
+            state: addr.state,
+            zip_code: addr.zipCode,
+            latitude: addr.latitude,
+            longitude: addr.longitude,
+          }));
+          const { error: addrError } = await supabase.from("user_addresses").insert(addrPayloads);
+          if (addrError) throw addrError;
+        }
+
+        // Step 4: Setup corrected selected_address_id
+        if (updates.selectedAddressId) {
+          dbUpdates.selected_address_id = updates.selectedAddressId;
+        } else if (updates.addresses.length > 0) {
+          dbUpdates.selected_address_id = updates.addresses[0].id;
+        } else {
+          dbUpdates.selected_address_id = null;
+        }
+      }
 
       const { error } = await supabase.from("users").update(dbUpdates).eq("id", userId);
       if (error) throw error;
@@ -310,6 +401,11 @@ export const usersService = {
   async delete(userId: string): Promise<void> {
     if (!isSupabaseConfigured || !supabase) return;
     try {
+      // Step 1: Null the selected_address_id to avoid FK constraint
+      await supabase.from("users").update({ selected_address_id: null }).eq("id", userId);
+      // Step 2: Delete address rows
+      await supabase.from("user_addresses").delete().eq("user_id", userId);
+      // Step 3: Delete user row
       const { error } = await supabase.from("users").delete().eq("id", userId);
       if (error) throw error;
     } catch (err) {
@@ -527,7 +623,27 @@ export const ordersService = {
 
       const { data, error } = await query.order("created_at", { ascending: false });
       if (error) throw error;
-      return (data || []).map(mapOrderFromDB);
+
+      const ordersList = (data || []).map(mapOrderFromDB);
+
+      // Fetch matching order_items for all retrieved orders
+      const { data: itemData, error: itemError } = await supabase.from("order_items").select("*");
+      if (!itemError && itemData) {
+        ordersList.forEach(order => {
+          order.items = itemData
+            .filter((item: any) => item.order_id === order.id)
+            .map((item: any) => ({
+              productId: item.product_id,
+              productName: item.product_name,
+              imageUrl: item.image_url,
+              price: Number(item.price),
+              unit: item.unit,
+              quantity: item.quantity,
+            }));
+        });
+      }
+
+      return ordersList;
     } catch (err) {
       console.error("Erro aos buscar pedidos do Supabase:", err);
       throw err;
@@ -538,10 +654,40 @@ export const ordersService = {
   async create(order: Order): Promise<Order> {
     if (!isSupabaseConfigured || !supabase) return order;
     try {
+      // Step 1: Ensure order_groups row exists
+      const { data: grpData } = await supabase.from("order_groups").select("id").eq("id", order.groupId);
+      if (!grpData || grpData.length === 0) {
+        const { error: grpError } = await supabase.from("order_groups").insert({
+          id: order.groupId,
+          user_id: order.userId,
+          address: order.address,
+        });
+        if (grpError) throw grpError;
+      }
+
+      // Step 2: Insert order
       const dbObj = mapOrderToDB(order);
       const { data, error } = await supabase.from("orders").insert(dbObj).select().single();
       if (error) throw error;
-      return mapOrderFromDB(data);
+
+      // Step 3: Insert order items
+      if (order.items && order.items.length > 0) {
+        const itemsPayload = order.items.map(item => ({
+          order_id: order.id,
+          product_id: item.productId,
+          product_name: item.productName,
+          image_url: item.imageUrl || "",
+          price: item.price,
+          unit: item.unit,
+          quantity: item.quantity,
+        }));
+        const { error: itemsError } = await supabase.from("order_items").insert(itemsPayload);
+        if (itemsError) throw itemsError;
+      }
+
+      const returnedOrder = mapOrderFromDB(data);
+      returnedOrder.items = order.items || [];
+      return returnedOrder;
     } catch (err) {
       console.error("Erro ao registrar pedido no Supabase:", err);
       throw err;

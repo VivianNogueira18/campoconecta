@@ -1688,7 +1688,7 @@ export default function ClientPanel({
                           className="p-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
                           title="Editar Endereço"
                         >
-                          <DynamicIcon name="Edit3" className="w-3.5 h-3.5" />
+                          <DynamicIcon name="Edit" className="w-3.5 h-3.5" />
                         </button>
                         <button
                           type="button"
@@ -1696,7 +1696,7 @@ export default function ClientPanel({
                           className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 transition-colors cursor-pointer"
                           title="Excluir Endereço"
                         >
-                          <DynamicIcon name="Trash2" className="w-3.5 h-3.5" />
+                          <DynamicIcon name="Trash" className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>

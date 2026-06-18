@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { User, Producer, Product, Category, Order, ChatMessage, OrderStatus } from "../types";
 import { DynamicIcon } from "./Icons";
+import { formatCep as formatCepUtil } from "../utils";
 
 interface ProducerPanelProps {
   currentUser: User;
@@ -68,6 +69,49 @@ export default function ProducerPanel({
     productionTypes: producer.productionTypes || ["padrao"],
     localFairDescription: producer.localFairDescription || "",
   });
+
+  // Detailed address parts states for clean layout
+  const [addressStreet, setAddressStreet] = useState("");
+  const [addressNumber, setAddressNumber] = useState("");
+  const [addressNeighborhood, setAddressNeighborhood] = useState("");
+  const [addressCity, setAddressCity] = useState("Queimados");
+  const [addressState, setAddressState] = useState("RJ");
+  const [addressZip, setAddressZip] = useState("");
+
+  useEffect(() => {
+    if (producer && producer.address) {
+      const parts = producer.address.split(",").map(p => p.trim());
+      const streetNum = parts[0] || "";
+      let street = streetNum;
+      let num = "";
+      const lastSpaceIdx = streetNum.lastIndexOf(" ");
+      if (lastSpaceIdx !== -1) {
+        const potentialNum = streetNum.substring(lastSpaceIdx + 1);
+        if (potentialNum.match(/\d/) || potentialNum.toLowerCase() === "sn" || potentialNum.toLowerCase() === "s/n") {
+          street = streetNum.substring(0, lastSpaceIdx).trim();
+          num = potentialNum;
+        }
+      }
+      setAddressStreet(street);
+      setAddressNumber(num);
+      setAddressNeighborhood(parts[1] || "");
+      let city = "Queimados";
+      let state = "RJ";
+      if (parts[2]) {
+        const cs = parts[2].split("-").map(p => p.trim());
+        city = cs[0] || "Queimados";
+        state = cs[1] || "RJ";
+      }
+      setAddressCity(city);
+      setAddressState(state);
+      setAddressZip(parts[3] || "");
+    }
+  }, [producer]);
+
+  const updateCompiledAddress = (s: string, n: string, neigh: string, c: string, st: string, z: string) => {
+    const compiled = `${s} ${n}`.trim() + `, ${neigh}, ${c} - ${st}, ${z}`;
+    setSettingsForm(prev => ({ ...prev, address: compiled }));
+  };
 
   // Chat window state
   const [selectedChatUser, setSelectedChatUser] = useState<string | null>(null);
@@ -969,14 +1013,104 @@ export default function ProducerPanel({
                     <p className="text-[10px] text-stone-500 mt-1">Os selos de destaque da sua lojinha serão ativados automaticamente com base nos tipos de produção selecionados.</p>
                   </div>
 
-                  <div>
-                    <label className="text-xs text-stone-600 font-medium block mb-1">Endereço da Propriedade</label>
-                    <input
-                      type="text"
-                      className="w-full p-2.5 bg-white border border-stone-200 rounded-xl text-sm focus:outline-emerald-600"
-                      value={settingsForm.address}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, address: e.target.value })}
-                    />
+                  <div className="bg-stone-50 p-4 rounded-2xl border border-stone-200 space-y-3">
+                    <label className="text-xs text-emerald-800 font-mono uppercase tracking-wider block mb-1 font-bold">📍 Endereço Detalhado da Propriedade (Lojinha)</label>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="sm:col-span-2">
+                        <label className="text-[10px] text-stone-500 font-bold uppercase block mb-1">Rua / Logradouro</label>
+                        <input
+                          type="text"
+                          className="w-full p-2.5 bg-white border border-stone-200 rounded-xl text-xs focus:outline-emerald-600 text-stone-800"
+                          value={addressStreet}
+                          onChange={(e) => {
+                            setAddressStreet(e.target.value);
+                            updateCompiledAddress(e.target.value, addressNumber, addressNeighborhood, addressCity, addressState, addressZip);
+                          }}
+                          placeholder="Ex: Estrada do Sol"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] text-stone-500 font-bold uppercase block mb-1">Número</label>
+                        <input
+                          type="text"
+                          className="w-full p-2.5 bg-white border border-stone-200 rounded-xl text-xs focus:outline-emerald-600 text-stone-800"
+                          value={addressNumber}
+                          onChange={(e) => {
+                            setAddressNumber(e.target.value);
+                            updateCompiledAddress(addressStreet, e.target.value, addressNeighborhood, addressCity, addressState, addressZip);
+                          }}
+                          placeholder="Ex: 450 ou S/N"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] text-stone-500 font-bold uppercase block mb-1">Bairro</label>
+                        <input
+                          type="text"
+                          className="w-full p-2.5 bg-white border border-stone-200 rounded-xl text-xs focus:outline-emerald-600 text-stone-800"
+                          value={addressNeighborhood}
+                          onChange={(e) => {
+                            setAddressNeighborhood(e.target.value);
+                            updateCompiledAddress(addressStreet, addressNumber, e.target.value, addressCity, addressState, addressZip);
+                          }}
+                          placeholder="Ex: Zona Rural"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] text-stone-500 font-bold uppercase block mb-1">Cidade</label>
+                        <input
+                          type="text"
+                          className="w-full p-2.5 bg-white border border-stone-200 rounded-xl text-xs focus:outline-emerald-600 text-stone-800 font-semibold"
+                          value={addressCity}
+                          onChange={(e) => {
+                            setAddressCity(e.target.value);
+                            updateCompiledAddress(addressStreet, addressNumber, addressNeighborhood, e.target.value, addressState, addressZip);
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] text-stone-500 font-bold uppercase block mb-1">CEP</label>
+                        <input
+                          type="text"
+                          className="w-full p-2.5 bg-white border border-stone-200 rounded-xl text-xs focus:outline-emerald-600 text-stone-800 font-mono"
+                          value={addressZip}
+                          placeholder="26300-000"
+                          onChange={async (e) => {
+                            const raw = e.target.value;
+                            const formatted = formatCepUtil(raw);
+                            setAddressZip(formatted);
+                            updateCompiledAddress(addressStreet, addressNumber, addressNeighborhood, addressCity, addressState, formatted);
+                            
+                            const cepDigits = raw.replace(/\D/g, "");
+                            if (cepDigits.length === 8) {
+                              try {
+                                const response = await fetch(`https://viacep.com.br/ws/${cepDigits}/json/`);
+                                const data = await response.json();
+                                if (data && !data.erro) {
+                                  let sStr = data.logradouro || addressStreet;
+                                  let bStr = data.bairro || addressNeighborhood;
+                                  let cStr = data.localidade || addressCity;
+                                  let stStr = data.uf || addressState;
+                                  
+                                  if (data.logradouro) setAddressStreet(data.logradouro);
+                                  if (data.bairro) setAddressNeighborhood(data.bairro);
+                                  if (data.localidade) setAddressCity(data.localidade);
+                                  if (data.uf) setAddressState(data.uf);
+                                  
+                                  updateCompiledAddress(sStr, addressNumber, bStr, cStr, stStr, formatted);
+                                }
+                              } catch (err) {
+                                console.error("ViaCEP lookup fail:", err);
+                              }
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   <div>

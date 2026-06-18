@@ -229,7 +229,7 @@ export default function AdminPanel({
             <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs px-2.5 py-1 rounded-full font-medium inline-flex items-center gap-1.5 uppercase tracking-wide">
               <DynamicIcon name="Shield" className="w-3.5 h-3.5" /> Painel de Moderação e Gestão
             </span>
-            <h1 className="text-2xl sm:text-3xl font-display font-semibold mt-2">CampoConecta Queimados</h1>
+            <h1 className="text-2xl sm:text-3xl font-display font-semibold mt-2">CampoConeQta Queimados</h1>
             <p className="text-stone-300 text-sm mt-1">Gestor do sistema de conexão produtor-consumidor.</p>
           </div>
           <div className="flex items-center gap-3 bg-white/5 border border-white/10 p-3 rounded-2xl">

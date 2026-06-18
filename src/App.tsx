@@ -580,6 +580,13 @@ export default function App() {
     }
   };
 
+  const handlePasswordReset = (userId: string, hashedPass: string) => {
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, password: hashedPass } : u));
+    if (activeUserId === userId) {
+      handleLogout();
+    }
+  };
+
   const handleLogout = () => {
     setActiveUserId("");
     setActiveRole("client");
@@ -655,7 +662,7 @@ export default function App() {
   if (!activeUserId || !currentUser) {
     return (
       <div className="min-h-screen bg-[#FDFDFB] flex flex-col justify-center">
-        <AuthPanel users={users} onLogin={handleLogin} onRegister={handleRegister} />
+        <AuthPanel users={users} onLogin={handleLogin} onRegister={handleRegister} onPasswordReset={handlePasswordReset} />
       </div>
     );
   }
@@ -703,7 +710,7 @@ export default function App() {
   return (
     <div className={`min-h-screen flex flex-col justify-between font-sans selection:bg-[#E9EDC9] transition-colors duration-300 ${theme.bg} ${theme.textColor}`}>
       
-      {/* 🚀 CAMPOCONECTA BRANDED SECURE HEADER */}
+      {/* 🚀 CAMPCONEQTA BRANDED SECURE HEADER */}
       <div className={`${theme.banner} border-b border-black/10 text-white py-4 px-4 sm:px-6 z-40 sticky top-0 shadow-md transition-all duration-300`}>
         <div className="max-w-7xl mx-auto flex flex-row justify-between items-center gap-4">
           {/* Logo Name & Location */}
@@ -712,7 +719,7 @@ export default function App() {
               <DynamicIcon name="Leaf" className="w-5 h-5 animate-pulse" />
             </div>
             <div>
-              <p className="text-[10px] font-bold font-mono tracking-widest uppercase opacity-90 text-white">CampoConecta</p>
+              <p className="text-[10px] font-bold font-mono tracking-widest uppercase opacity-90 text-white">CampoConeQta</p>
               <h1 className="text-base font-serif font-bold tracking-wide text-white">
                 Queimados <span className="opacity-75 font-light">| RJ</span>
               </h1>
@@ -734,7 +741,7 @@ export default function App() {
             <button
               onClick={handleLogout}
               className="bg-white/10 hover:bg-white/20 border border-white/20 text-xs text-white py-1.5 px-3 rounded-xl transition-all font-semibold flex items-center gap-1.5 cursor-pointer"
-              title="Sair do CampoConecta"
+              title="Sair do CampoConeQta"
             >
               <DynamicIcon name="LogOut" className="w-3.5 h-3.5" />
               <span>Sair</span>
@@ -956,7 +963,7 @@ export default function App() {
       <footer className="bg-[#1A252F] border-t border-black/10 py-8 px-6 text-white/85 text-xs">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-6 text-center sm:text-left">
           <div>
-            <p className="font-serif font-bold text-base text-white">CampoConecta</p>
+            <p className="font-serif font-bold text-base text-white">CampoConeQta</p>
             <p className="text-[11px] opacity-75 mt-1">Conectando quem produz a quem valoriza</p>
             <p className="text-[11px] text-amber-300 font-bold mt-1 uppercase font-mono tracking-wide">Liga Jovem do EM Leopoldo Machado</p>
           </div>
